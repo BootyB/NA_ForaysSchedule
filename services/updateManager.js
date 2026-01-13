@@ -37,14 +37,11 @@ class UpdateManager {
 
   async cleanupOldState() {
     try {
-      // Get all active guild IDs from database
       const activeGuilds = await this.pool.query(
         'SELECT guild_id FROM na_bot_server_configs WHERE setup_complete = 1'
       );
       
       const activeGuildIds = new Set(activeGuilds.map(g => g.guild_id));
-      
-      // Remove state entries for guilds that are no longer active
       const stateKeys = Object.keys(this.state);
       let removedCount = 0;
       
@@ -175,8 +172,30 @@ class UpdateManager {
       const bannerAttachment = this.getBannerAttachment(raidType);
       
       try {
-        // Only create overview if it doesn't exist - never edit it
         if (!existingOverviewId || needsRecreation) {
+          const botMember = await channel.guild.members.fetchMe();
+          const permissions = channel.permissionsFor(botMember);
+          
+          if (!permissions.has('ViewChannel') || !permissions.has('SendMessages')) {
+            logger.error('Bot missing basic permissions in channel', {
+              guildId,
+              raidType,
+              channelId: channel.id,
+              hasViewChannel: permissions.has('ViewChannel'),
+              hasSendMessages: permissions.has('SendMessages')
+            });
+            throw new Error('Bot missing ViewChannel or SendMessages permission');
+          }
+          
+          if (bannerAttachment && !permissions.has('AttachFiles')) {
+            logger.error('Bot missing AttachFiles permission needed for banner', {
+              guildId,
+              raidType,
+              channelId: channel.id
+            });
+            throw new Error('Bot missing AttachFiles permission (required for banner image)');
+          }
+          
           const messageOptions = { 
             components: [overviewContainer.toJSON()], 
             flags: 1 << 15
@@ -188,7 +207,6 @@ class UpdateManager {
           overviewMessageId = newMessage.id;
           logger.debug('Created new overview message', { guildId, raidType });
         } else {
-          // Overview exists and doesn't need recreation - leave it alone
           logger.debug('Keeping existing overview message', { guildId, raidType, messageId: existingOverviewId });
         }
       } catch (error) {

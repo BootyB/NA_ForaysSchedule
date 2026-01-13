@@ -196,7 +196,9 @@ async function handleSetupConfirmation(interaction, services) {
     return;
   }
 
-  try {
+  try {    
+    await interaction.deferUpdate();
+    
     const { pool } = services;
     const guildId = interaction.guild.id;
 
@@ -237,9 +239,8 @@ async function handleSetupConfirmation(interaction, services) {
       new TextDisplayBuilder().setContent('✅ **Setup complete!** Schedules are now being displayed and will update automatically every 60 seconds.')
     );
     
-    await interaction.update({
-      components: [successContainer],
-      flags: 64 | 32768
+    await interaction.editReply({
+      components: [successContainer]
     });
 
     logger.info('Setup completed', {
@@ -259,9 +260,13 @@ async function handleSetupConfirmation(interaction, services) {
       new TextDisplayBuilder().setContent('❌ An error occurred saving your configuration. Please try again.')
     );
     
-    await interaction.update({
-      components: [errorContainer],
-      flags: 64 | 32768
+    await interaction.editReply({
+      components: [errorContainer]
+    }).catch(() => {
+      interaction.followUp({
+        content: '❌ An error occurred saving your configuration. Please try again.',
+        flags: 64 | 32768
+      }).catch(() => {});
     });
   }
 }
