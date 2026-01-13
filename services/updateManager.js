@@ -173,33 +173,30 @@ class UpdateManager {
 
       let overviewMessageId = existingOverviewId;
       const bannerAttachment = this.getBannerAttachment(raidType);
-      const messageOptions = { 
-        components: [overviewContainer.toJSON()], 
-        flags: 1 << 15
-      };
-      if (bannerAttachment) {
-        messageOptions.files = [bannerAttachment];
-      }
-
+      
       try {
-        if (existingOverviewId && !needsRecreation) {
-          const message = await channel.messages.fetch(existingOverviewId).catch(() => null);
-          if (message) {
-            await message.edit(messageOptions);
-            logger.debug('Updated overview message', { guildId, raidType });
-          } else {
-            const newMessage = await channel.send(messageOptions);
-            overviewMessageId = newMessage.id;
-            logger.debug('Created new overview message (old not found)', { guildId, raidType });
+        // Only create overview if it doesn't exist - never edit it
+        if (!existingOverviewId || needsRecreation) {
+          const messageOptions = { 
+            components: [overviewContainer.toJSON()], 
+            flags: 1 << 15
+          };
+          if (bannerAttachment) {
+            messageOptions.files = [bannerAttachment];
           }
-        } else {
           const newMessage = await channel.send(messageOptions);
           overviewMessageId = newMessage.id;
           logger.debug('Created new overview message', { guildId, raidType });
+        } else {
+          // Overview exists and doesn't need recreation - leave it alone
+          logger.debug('Keeping existing overview message', { guildId, raidType, messageId: existingOverviewId });
         }
       } catch (error) {
         logger.error('Error updating overview message', {
           error: error.message,
+          code: error.code,
+          httpStatus: error.httpStatus,
+          stack: error.stack,
           guildId,
           raidType
         });
@@ -214,9 +211,22 @@ class UpdateManager {
           if (existingMessageIds[i]) {
             const message = await channel.messages.fetch(existingMessageIds[i]).catch(() => null);
             if (message) {
-              await message.edit({ components: [container.toJSON()], flags: 1 << 15 });
-              newMessageIds.push(message.id);
-              logger.debug('Updated schedule message', { guildId, raidType, messageIndex: i });
+              // Check if the message is owned by this bot
+              if (message.author.id !== channel.client.user.id) {
+                logger.warn('Schedule message not owned by bot, recreating', { 
+                  guildId, 
+                  raidType,
+                  messageIndex: i,
+                  messageAuthor: message.author.id,
+                  botId: channel.client.user.id
+                });
+                const newMessage = await channel.send({ components: [container.toJSON()], flags: 1 << 15 });
+                newMessageIds.push(newMessage.id);
+              } else {
+                await message.edit({ components: [container.toJSON()], flags: 1 << 15 });
+                newMessageIds.push(message.id);
+                logger.debug('Updated schedule message', { guildId, raidType, messageIndex: i });
+              }
             } else {
               const newMessage = await channel.send({ components: [container.toJSON()], flags: 1 << 15 });
               newMessageIds.push(newMessage.id);

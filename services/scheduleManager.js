@@ -22,11 +22,24 @@ class ScheduleManager {
       const currentTime = Date.now();
       const futureTime = currentTime + (daysAhead * 24 * 60 * 60 * 1000);
 
-      const dbName = process.env.DB_NAME;
+      const sourceDbName = process.env.DB_SOURCE_NAME || process.env.DB_NAME;
       const tableName = process.env.DB_TABLE_NAME;
       
-      if (!dbName || !tableName) {
-        throw new Error('DB_NAME and DB_TABLE_NAME must be set in environment variables');
+      logger.debug('Database configuration', { 
+        sourceDbName, 
+        tableName,
+        DB_SOURCE_NAME: process.env.DB_SOURCE_NAME,
+        DB_NAME: process.env.DB_NAME
+      });
+      
+      if (!sourceDbName || !tableName) {
+        throw new Error('DB_SOURCE_NAME (or DB_NAME) and DB_TABLE_NAME must be set in environment variables');
+      }
+      
+      // Validate identifiers to prevent SQL injection
+      const identifierRegex = /^[a-zA-Z0-9_]+$/;
+      if (!identifierRegex.test(sourceDbName) || !identifierRegex.test(tableName)) {
+        throw new Error('Invalid database or table name format');
       }
       
       let query = `
@@ -41,13 +54,13 @@ class ScheduleManager {
           referenceLink,
           SourceMessageID,
           EventID
-        FROM ??.??
+        FROM \`${sourceDbName}\`.\`${tableName}\`
         WHERE Start > ?
           AND Start < ?
           AND isCancelled = 0
       `;
 
-      const params = [dbName, tableName, currentTime, futureTime];
+      const params = [currentTime, futureTime];
 
       if (raidType === 'BA') {
         query += ' AND DRS = 0 AND FT = 0';

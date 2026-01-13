@@ -1,5 +1,5 @@
 const http = require('http');
-const logger = require('./utils/logger');
+const logger = require('../utils/logger');
 
 class HealthCheck {
   constructor(client, pool) {
