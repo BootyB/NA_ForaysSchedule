@@ -22,7 +22,12 @@ class ScheduleManager {
       const currentTime = Date.now();
       const futureTime = currentTime + (daysAhead * 24 * 60 * 60 * 1000);
 
+      const dbName = process.env.DB_NAME;
       const tableName = process.env.DB_TABLE_NAME;
+      
+      if (!dbName || !tableName) {
+        throw new Error('DB_NAME and DB_TABLE_NAME must be set in environment variables');
+      }
       
       let query = `
         SELECT 
@@ -36,13 +41,13 @@ class ScheduleManager {
           referenceLink,
           SourceMessageID,
           EventID
-        FROM ozma.${tableName}
+        FROM ??.??
         WHERE Start > ?
           AND Start < ?
           AND isCancelled = 0
       `;
 
-      const params = [currentTime, futureTime];
+      const params = [dbName, tableName, currentTime, futureTime];
 
       if (raidType === 'BA') {
         query += ' AND DRS = 0 AND FT = 0';

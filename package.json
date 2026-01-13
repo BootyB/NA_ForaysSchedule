@@ -6,11 +6,12 @@
   "scripts": {
     "start": "node index.js",
     "deploy": "node deploy-commands.js",
-    "dev": "node index.js"
+    "dev": "node index.js",
+    "migrate": "node database/migrate.js"
   },
   "keywords": ["discord", "ffxiv", "raid", "schedule"],
   "author": "",
-  "license": "ISC",
+  "license": "GPL-3.0",
   "dependencies": {
     "discord.js": "^14.14.0",
     "mariadb": "^3.2.0",

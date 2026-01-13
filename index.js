@@ -11,6 +11,7 @@ const ScheduleContainerBuilder = require('./services/containerBuilder');
 const UpdateManager = require('./services/updateManager');
 const WhitelistManager = require('./services/whitelistManager');
 const TimerService = require('./services/timerService');
+const HealthCheck = require('./services/healthCheck');
 
 const requiredEnvVars = [
   'DISCORD_TOKEN',
@@ -35,6 +36,10 @@ const client = new Client({
   ],
   presence: {
     status: 'invisible'
+  },
+  rest: {
+    timeout: 15000, // 15 second timeout for REST requests
+    retries: 3
   }
 });
 
@@ -61,7 +66,8 @@ let services = {
   containerBuilder: null,
   updateManager: null,
   whitelistManager: null,
-  timerService: null
+  timerService: null,
+  healthCheck: null
 };
 
 const eventsPath = path.join(__dirname, 'events');
@@ -93,6 +99,12 @@ client.once('clientReady', async () => {
   services.whitelistManager = new WhitelistManager(pool);
   services.updateManager = new UpdateManager(pool, client);
   services.timerService = new TimerService(services.updateManager);
+  services.healthCheck = new HealthCheck(client, pool);
+  
+  // Start health check endpoint if HEALTH_PORT is configured
+  if (process.env.HEALTH_PORT) {
+    services.healthCheck.start();
+  }
   
   logger.info('All services initialized');
 });
@@ -127,6 +139,10 @@ process.on('SIGINT', async () => {
   
   if (services.timerService) {
     services.timerService.stop();
+  }
+  
+  if (services.healthCheck) {
+    services.healthCheck.stop();
   }
   
   if (services.updateManager) {

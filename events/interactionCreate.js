@@ -1,6 +1,8 @@
 const { MessageFlags } = require('discord.js');
 const logger = require('../utils/logger');
 const { canConfigureBot } = require('../utils/permissions');
+const { GOOGLE_CALENDAR_IDS } = require('../config/constants');
+const rateLimiter = require('../utils/rateLimiter');
 
 module.exports = {
   name: 'interactionCreate',
@@ -32,6 +34,16 @@ async function handleSlashCommand(interaction, services) {
   }
 
   try {
+    // Rate limiting check
+    const rateLimitCheck = rateLimiter.checkCommandCooldown(interaction.user.id, interaction.commandName);
+    if (!rateLimitCheck.allowed) {
+      await interaction.reply({
+        content: `⏱️ Please wait ${rateLimitCheck.timeLeft} second(s) before using this command again.`,
+        flags: MessageFlags.Ephemeral
+      });
+      return;
+    }
+
     if (['setup', 'configure'].includes(interaction.commandName)) {
       if (!canConfigureBot(interaction.member)) {
         await interaction.reply({
@@ -55,11 +67,27 @@ async function handleSlashCommand(interaction, services) {
       error: error.message,
       stack: error.stack,
       command: interaction.commandName,
-      user: interaction.user.tag
+      user: interaction.user.tag,
+      guild: interaction.guild?.name
     });
 
+    let errorContent = '❌ There was an error executing this command.';
+    
+    // Provide more specific error messages based on error type
+    if (error.message.includes('Missing Permissions')) {
+      errorContent = '❌ The bot lacks the required permissions to perform this action. Please ensure the bot has **View Channel**, **Send Messages**, and **Embed Links** permissions.';
+    } else if (error.message.includes('Unknown Channel')) {
+      errorContent = '❌ The configured channel no longer exists. Please reconfigure using `/na-schedule`.';
+    } else if (error.message.includes('Unknown Message')) {
+      errorContent = '❌ The schedule message was deleted. The bot will recreate it on the next update.';
+    } else if (error.code === 'ETIMEDOUT' || error.code === 'ECONNREFUSED') {
+      errorContent = '❌ Connection timeout. The bot is having trouble connecting to services. Please try again in a moment.';
+    } else if (error.message.includes('database') || error.message.includes('Database')) {
+      errorContent = '❌ Database error occurred. Please try again or contact the bot administrator if the issue persists.';
+    }
+
     const errorMessage = {
-      content: '❌ There was an error executing this command.',
+      content: errorContent,
       flags: MessageFlags.Ephemeral
     };
 
@@ -78,6 +106,16 @@ async function handleButtonInteraction(interaction, services) {
   const customId = interaction.customId;
 
   try {
+    // Rate limiting check
+    const rateLimitCheck = rateLimiter.checkInteractionCooldown(interaction.user.id, 'button');
+    if (!rateLimitCheck.allowed) {
+      await interaction.reply({
+        content: '⏱️ You\'re clicking too fast! Please slow down.',
+        flags: MessageFlags.Ephemeral
+      });
+      return;
+    }
+
     if (customId.startsWith('setup_')) {
       const { handleSetupInteraction } = require('./setupInteractions');
       await handleSetupInteraction(interaction, services);
@@ -107,11 +145,17 @@ async function handleButtonInteraction(interaction, services) {
   } catch (error) {
     logger.error('Error handling button', {
       error: error.message,
-      customId
+      stack: error.stack,
+      customId,
+      userId: interaction.user.id
     });
 
+    const errorContent = error.message.includes('Unknown interaction') 
+      ? '❌ This interaction has expired. Please run the command again.'
+      : '❌ An error occurred processing this button. Please try again.';
+
     await interaction.reply({
-      content: '❌ An error occurred processing this button.',
+      content: errorContent,
       flags: MessageFlags.Ephemeral
     }).catch(() => {});
   }
@@ -121,6 +165,16 @@ async function handleSelectMenuInteraction(interaction, services) {
   const customId = interaction.customId;
 
   try {
+    // Rate limiting check
+    const rateLimitCheck = rateLimiter.checkInteractionCooldown(interaction.user.id, 'selectmenu');
+    if (!rateLimitCheck.allowed) {
+      await interaction.reply({
+        content: '⏱️ Please wait a moment before making another selection.',
+        flags: MessageFlags.Ephemeral
+      });
+      return;
+    }
+
     if (customId.startsWith('setup_')) {
       const { handleSetupInteraction } = require('./setupInteractions');
       await handleSetupInteraction(interaction, services);
@@ -146,11 +200,17 @@ async function handleSelectMenuInteraction(interaction, services) {
   } catch (error) {
     logger.error('Error handling select menu', {
       error: error.message,
-      customId
+      stack: error.stack,
+      customId,
+      userId: interaction.user.id
     });
 
+    const errorContent = error.message.includes('Unknown interaction')
+      ? '❌ This interaction has expired. Please run the command again.'
+      : '❌ An error occurred processing this menu. Please try again.';
+
     await interaction.reply({
-      content: '❌ An error occurred processing this menu.',
+      content: errorContent,
       flags: MessageFlags.Ephemeral
     }).catch(() => {});
   }
@@ -164,7 +224,7 @@ async function handleScheduleInfoButton(interaction) {
     '• Edits to run details are tracked via the original post being edited.\n\n' +
     '• For the most accurate and up-to-date information, always verify the schedule with the host server.\n\n' +
     '• All times are displayed local to your device.\n\n' +
-    '*Contact <@137711026673025025> (bootybuttcheeks) for any questions or corrections.*';
+    `*Contact <@${process.env.BOT_OWNER_ID}> for any questions or corrections.*`;
 
   await interaction.reply({
     content: infoMessage,
@@ -181,13 +241,15 @@ async function handleTimezoneSelect(interaction) {
   const selectedTimezone = interaction.values[0];
   const raidType = interaction.customId.split('_')[2].toUpperCase();
   
-  const calendarIds = {
-    BA: 'da548ac3301f1a3652f668b98b53255e1cde7aa39001c71bcb2ad063bbb4958a%40group.calendar.google.com',
-    FT: '00cbef49f62776b3905e37b154616b5a1025e944b9346c294c7c621df1e26e63%40group.calendar.google.com',
-    DRS: '0df4417fcd1e22b355fdbee9873df5216e3e708d953777f08861cfd3688be39c%40group.calendar.google.com'
-  };
+  const calendarId = GOOGLE_CALENDAR_IDS[raidType];
+  if (!calendarId) {
+    await interaction.reply({
+      content: '❌ Calendar not available for this raid type.',
+      flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
   
-  const calendarId = calendarIds[raidType];
   const calendarUrl = `https://calendar.google.com/calendar/embed?src=${calendarId}&ctz=${encodeURIComponent(selectedTimezone)}`;
   
   const timezoneOption = interaction.component.options.find(opt => opt.value === selectedTimezone);

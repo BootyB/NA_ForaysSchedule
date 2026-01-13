@@ -1,6 +1,7 @@
 const { ContainerBuilder, TextDisplayBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
 const logger = require('../utils/logger');
 const { getAllHostServers } = require('../config/hostServers');
+const { areValidHostServers } = require('../utils/validators');
 
 async function handleConfigInteraction(interaction, services) {
   const customId = interaction.customId;
@@ -264,6 +265,22 @@ async function saveHostChanges(interaction, services, raidType) {
 
   try {
     await interaction.deferUpdate();
+
+    // Validate selected hosts
+    if (!areValidHostServers(selectedHosts)) {
+      logger.warn('Invalid host servers selected', { guildId, raidType, selectedHosts });
+      
+      const errorContainer = new ContainerBuilder();
+      errorContainer.addTextDisplayComponents(
+        new TextDisplayBuilder().setContent('❌ One or more selected host servers are invalid. Please try again.')
+      );
+      
+      await interaction.editReply({
+        components: [errorContainer],
+        flags: 64 | 32768
+      });
+      return;
+    }
 
     const hostsKey = `enabled_hosts_${raidType.toLowerCase()}`;
     

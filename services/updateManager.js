@@ -19,6 +19,10 @@ class UpdateManager {
     try {
       const data = await fs.readFile(this.stateFile, 'utf8');
       this.state = JSON.parse(data);
+      
+      // Clean up old state entries
+      await this.cleanupOldState();
+      
       logger.info('Loaded schedule state', { stateKeys: Object.keys(this.state).length });
     } catch (error) {
       if (error.code === 'ENOENT') {
@@ -28,6 +32,36 @@ class UpdateManager {
         logger.error('Error loading state file', { error: error.message });
         this.state = {};
       }
+    }
+  }
+
+  async cleanupOldState() {
+    try {
+      // Get all active guild IDs from database
+      const activeGuilds = await this.pool.query(
+        'SELECT guild_id FROM na_bot_server_configs WHERE setup_complete = 1'
+      );
+      
+      const activeGuildIds = new Set(activeGuilds.map(g => g.guild_id));
+      
+      // Remove state entries for guilds that are no longer active
+      const stateKeys = Object.keys(this.state);
+      let removedCount = 0;
+      
+      for (const key of stateKeys) {
+        const guildId = key.split('_')[0];
+        if (!activeGuildIds.has(guildId)) {
+          delete this.state[key];
+          removedCount++;
+        }
+      }
+      
+      if (removedCount > 0) {
+        logger.info('Cleaned up old state entries', { removed: removedCount });
+        await this.saveState();
+      }
+    } catch (error) {
+      logger.error('Error cleaning up state', { error: error.message });
     }
   }
 
