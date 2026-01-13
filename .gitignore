@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+
+# Environment Variables
+.env
+
+# Logs
+*.log
+logs/
+
+# State Files
+data/scheduleState.json
+assets/
+
+# OS Files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.github/
+
+# PM2
+.pm2/
+ecosystem.config.js
