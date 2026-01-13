@@ -47,4 +47,4 @@ A Discord bot that displays FFXIV NA datacenter raid schedules (Baldesion Arsena
 
 ## License
 
-ISC
+GNU General Public License v3.0
