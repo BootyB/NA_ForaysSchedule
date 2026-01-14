@@ -1,31 +1,36 @@
 # Privacy Policy
 
-**Last Updated: January 13, 2026**
+**Last Updated: January 14, 2026**
 
-## 1. Introduction
+## 1. Introduction and Scope
 
-This Privacy Policy describes how the NA Schedule Bot (the "Bot") collects, uses, and protects information when you use the Bot on Discord. We are committed to protecting your privacy and being transparent about our data practices.
+This Privacy Policy describes how our **hosted instance** of the NA Schedule Bot service (the "Service") collects, uses, and protects information when you use our hosted Service on Discord.
+
+**Important:** This Privacy Policy applies only to our hosted Service. The NA Schedule Bot software itself is open-source under GPL-3.0, and if you run your own instance, you are responsible for your own privacy practices.
+
+We are committed to protecting your privacy and being transparent about our data practices for our hosted Service.
 
 ## 2. Information We Collect
 
 ### 2.1 Discord Server Information
 
-When the Bot is added to a Discord server, we collect and store:
+When our hosted Service is added to a Discord server, we collect and store:
 
-- **Guild ID**: Unique identifier for your Discord server
-- **Guild Name**: Name of your Discord server
-- **Configuration Settings**: Your server's Bot configuration preferences, including:
+- **Guild ID**: Unique identifier for your Discord server (encrypted)
+- **Guild Name**: Name of your Discord server (encrypted)
+- **Configuration Settings**: Your server's configuration preferences, including:
   - Selected host servers to display
   - Auto-update preferences
-  - Channel IDs where the Bot posts schedules
-  - Message IDs for schedule embeds
+  - Channel IDs where schedules are posted (encrypted)
+  - Message IDs for schedule embeds (encrypted)
+  - Custom color settings
 
 ### 2.2 User Interaction Data
 
-When users interact with the Bot, we may temporarily process:
+When users interact with our hosted Service, we may temporarily process:
 
-- **User IDs**: Discord user identifiers for rate limiting and permissions
-- **Command Usage**: Records of Bot commands executed (for operational purposes)
+- **User IDs**: Discord user identifiers for rate limiting and permissions checking
+- **Command Usage**: Logged for operational purposes (non-persistent, rotation applied)
 
 ### 2.3 Rate Limiting Data
 
@@ -51,6 +56,7 @@ We use the collected information for the following purposes:
 - Displaying FFXIV raid schedules in your Discord server
 - Maintaining your server-specific configuration preferences
 - Providing automatic schedule updates
+- Managing whitelist/blacklist access control
 
 ### 3.2 Service Improvement
 
@@ -79,9 +85,10 @@ We use the collected information for the following purposes:
 
 ### 4.2 Data Retention
 
-- Server configurations are retained while the Bot remains in your server
-- When the Bot is removed from a server, configuration data may be retained for a reasonable period for potential re-addition.
-- Log files are rotated and deleted according to our retention policy
+- Server configurations are retained while our hosted Service remains in your server
+- When the Service is removed from a server, encrypted configuration data is retained unless deletion is requested
+- Log files are rotated regularly (typically 30 days)
+- State data is periodically cleaned to remove inactive server entries
 
 ### 4.3 Security Measures
 
@@ -146,13 +153,22 @@ You can opt out of the Bot's services by:
 
 The Bot is not directed to individuals under the age of 13 (or the applicable age of digital consent in your jurisdiction). We do not knowingly collect personal information from children. If you are a parent or guardian and believe your child has provided us with personal information, please contact us.
 
-## 8. Open Source Transparency
+## 8. Open Source and Self-Hosting
 
-This Bot is open source software licensed under GPL-3.0. You can:
+The NA Schedule Bot software is open-source under GPL-3.0. This provides transparency and alternatives:
 
-- Review the source code to understand our data practices
-- Audit our security and privacy implementations
-- Run your own instance of the Bot with full control over data
+**Transparency Benefits:**
+- Review the source code to understand data practices
+- Audit security and privacy implementations
+- Verify encryption and data handling
+
+**Self-Hosting Option:**
+- Download and run your own instance
+- Full control over data storage and processing
+- This Privacy Policy does not apply to self-hosted instances
+- You become the data controller for your instance
+
+If privacy is a primary concern, self-hosting gives you complete control. See the repository for setup instructions.
 
 ## 9. International Data Transfers
 
@@ -163,9 +179,11 @@ The Bot's infrastructure may be located in various jurisdictions. By using the B
 We may update this Privacy Policy from time to time. We will notify users of material changes by:
 
 - Updating the "Last Updated" date at the top of this policy
-- Posting announcements in relevant Discord channels (if applicable)
+- Announcing through our repository or official channels
 
-Continued use of the Bot after changes constitutes acceptance of the updated Privacy Policy.
+Continued use of our hosted Service after changes constitutes acceptance of the updated Privacy Policy.
+
+**Note:** Changes to this Privacy Policy do not affect the GPL-3.0 license or your ability to self-host the software.
 
 ## 11. Discord's Privacy Policy
 
@@ -193,8 +211,16 @@ This Bot complies with Discord's Developer Terms of Service and Developer Policy
 
 ## 15. Your Consent
 
-By using the Bot, you consent to this Privacy Policy and agree to its terms.
+By using our hosted Service, you consent to this Privacy Policy and agree to its terms.
+
+**Alternatives:** If you do not agree with this Privacy Policy, you may:
+- Not use our hosted Service
+- Run your own instance of the software under GPL-3.0 with your own privacy practices
 
 ---
 
-**Note**: This is a living document that may be updated to reflect changes in our practices, legal requirements, or service features. Please review it periodically.
+**Scope Reminder:** This Privacy Policy applies to our hosted Service only. Self-hosted instances operate under their own privacy practices.
+
+**Source Code:** Available at the project repository under GPL-3.0  
+**License:** GNU General Public License v3.0  
+**Service Privacy:** This Privacy Policy (for hosted instance only)
