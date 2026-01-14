@@ -16,6 +16,9 @@ async function handleConfigInteraction(interaction, services) {
   } else if (customId.startsWith('config_save_hosts_')) {
     const raidType = customId.split('_').pop().toUpperCase();
     await saveHostChanges(interaction, services, raidType);
+  } else if (customId.startsWith('config_regenerate_raid_')) {
+    const raidType = customId.split('_').pop().toUpperCase();
+    await regenerateRaidSchedule(interaction, services, raidType);
   } else if (customId === 'config_toggle_auto_update') {
     await toggleAutoUpdate(interaction, services);
   } else if (customId === 'config_refresh_schedules') {
@@ -172,13 +175,22 @@ async function showRaidConfig(interaction, services, raidType, useEditReply = fa
     .setLabel('Change Host Servers')
     .setStyle(ButtonStyle.Primary);
 
+  const regenerateButton = new ButtonBuilder()
+    .setCustomId(`config_regenerate_raid_${raidType.toLowerCase()}`)
+    .setLabel('Regenerate Schedule')
+    .setStyle(ButtonStyle.Success);
+
   const backButton = new ButtonBuilder()
     .setCustomId('config_back')
     .setLabel('Back to Menu')
     .setStyle(ButtonStyle.Secondary);
 
   container.addActionRowComponents(
-    new ActionRowBuilder().addComponents(changeHostsButton, backButton)
+    new ActionRowBuilder().addComponents(changeHostsButton, regenerateButton)
+  );
+  
+  container.addActionRowComponents(
+    new ActionRowBuilder().addComponents(backButton)
   );
 
   const payload = {
@@ -383,6 +395,62 @@ async function refreshSchedules(interaction, services) {
     const errorContainer = new ContainerBuilder();
     errorContainer.addTextDisplayComponents(
       new TextDisplayBuilder().setContent('❌ Error refreshing schedules. Please try again.')
+    );
+    await interaction.followUp({
+      components: [errorContainer],
+      flags: 64 | 32768,
+      ephemeral: true
+    });
+  }
+}
+
+async function regenerateRaidSchedule(interaction, services, raidType) {
+  const guildId = interaction.guild.id;
+  
+  try {
+    await interaction.deferUpdate();
+    
+    const result = await services.updateManager.regenerateSchedule(guildId, raidType);
+    
+    if (result.success) {
+      const successContainer = new ContainerBuilder();
+      successContainer.addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(`✅ ${raidType} schedule regenerated successfully!`)
+      );
+      
+      await interaction.followUp({
+        components: [successContainer],
+        flags: 64 | 32768,
+        ephemeral: true
+      });
+
+      logger.info('Raid schedule regenerated', {
+        guildId,
+        raidType,
+        user: interaction.user.tag
+      });
+    } else {
+      const errorContainer = new ContainerBuilder();
+      errorContainer.addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(`❌ Error regenerating ${raidType} schedule: ${result.error}`)
+      );
+      await interaction.followUp({
+        components: [errorContainer],
+        flags: 64 | 32768,
+        ephemeral: true
+      });
+    }
+
+  } catch (error) {
+    logger.error('Error regenerating raid schedule', {
+      error: error.message,
+      guildId,
+      raidType
+    });
+
+    const errorContainer = new ContainerBuilder();
+    errorContainer.addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(`❌ Error regenerating ${raidType} schedule. Please try again.`)
     );
     await interaction.followUp({
       components: [errorContainer],

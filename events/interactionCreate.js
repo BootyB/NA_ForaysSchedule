@@ -224,7 +224,7 @@ async function handleScheduleInfoButton(interaction) {
     '• Edits to run details are tracked via the original post being edited.\n\n' +
     '• For the most accurate and up-to-date information, always verify the schedule with the host server.\n\n' +
     '• All times are displayed local to your device.\n\n' +
-    `*Contact <@${process.env.BOT_OWNER_ID}> for any questions or corrections.*`;
+    `-# Contact <@${process.env.BOT_OWNER_ID}> for any questions or corrections.`;
 
   await interaction.reply({
     content: infoMessage,

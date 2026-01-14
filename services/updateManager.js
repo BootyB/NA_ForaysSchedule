@@ -46,11 +46,6 @@ class UpdateManager {
   }
 
   getBannerAttachment(raidType) {
-    // Only BA and DRS have banners currently
-    if (raidType !== 'BA' && raidType !== 'DRS') {
-      return null;
-    }
-    
     try {
       const filename = `${raidType.toLowerCase()}_opening.avif`;
       const filepath = path.join(__dirname, '../assets', filename);
@@ -118,7 +113,7 @@ class UpdateManager {
 
       const messageKey = `schedule_message_${raidType.toLowerCase()}`;
       const overviewMessageKey = `schedule_overview_${raidType.toLowerCase()}`;
-      const existingMessageIds = config[messageKey] ? JSON.parse(config[messageKey]) : [];
+      const existingMessageIds = config[messageKey] || [];
       const existingOverviewId = config[overviewMessageKey];
 
       const needsRecreation = !existingOverviewId && existingMessageIds.length > 0;

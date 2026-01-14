@@ -46,11 +46,10 @@ class ScheduleContainerBuilder {
     const links = calendarLinks[raidType];
 
     // Banner images - use attachment:// for local files
-    // Only BA and DRS have banners currently, FT will use text title
     const bannerImages = {
       BA: 'attachment://ba_opening.avif',
       DRS: 'attachment://drs_opening.avif',
-      // FT: 'attachment://ft_opening.avif'  // Uncomment when file is added
+      FT: 'attachment://ft_opening.avif'
     };
 
     let headerContent = '';
@@ -70,8 +69,12 @@ class ScheduleContainerBuilder {
       );
       headerContent = `### Multi-Server Delubrum Reginae Savage Schedule for North American and Materia Data Centers\n`;
     } else if (raidType === 'FT') {
-      // FT uses text title until banner is added
-      headerContent = `## ${raidInfo.emoji} ${raidInfo.name} Schedule\n### Multi-Server Forked Tower Schedule for North American and Materia Data Centers\n`;
+      container.addMediaGalleryComponents(
+        new MediaGalleryBuilder().addItems(
+          new MediaGalleryItemBuilder().setURL(bannerImages.FT)
+        )
+      );
+      headerContent = `### Multi-Server Forked Tower Schedule for North American and Materia Data Centers\n`;
     } else {
       headerContent = `## ${raidInfo.emoji} ${raidInfo.name} Schedule\n### Multi-Server ${raidInfo.name} Schedule for North American and Materia Data Centers\n`;
     }
