@@ -122,9 +122,17 @@ process.on('uncaughtException', (error) => {
     stack: error.stack
   });
   
+  // Don't exit on WebSocket errors - discord.js will handle reconnection
+  if (error.message && error.message.includes('Opening handshake has timed out')) {
+    logger.warn('WebSocket timeout detected - discord.js will attempt to reconnect');
+    return;
+  }
+  
+  // For other critical errors, exit after a delay
+  logger.error('Fatal error - shutting down in 5 seconds');
   setTimeout(() => {
     process.exit(1);
-  }, 1000);
+  }, 5000);
 });
 
 client.on('error', (error) => {

@@ -11,8 +11,9 @@ class EncryptedStateManager {
 
   async initialize() {
     try {
-      const encryptedData = await fs.readFile(this.stateFile, 'utf8');
-      this.state = decryptJSON(encryptedData);
+      const fileContents = await fs.readFile(this.stateFile, 'utf8');
+      const parsed = JSON.parse(fileContents);
+      this.state = decryptJSON(parsed.encrypted);
       logger.info('Loaded encrypted schedule state', { stateKeys: Object.keys(this.state).length });
     } catch (error) {
       if (error.code === 'ENOENT') {
@@ -28,7 +29,8 @@ class EncryptedStateManager {
   async save() {
     try {
       const encryptedData = encryptJSON(this.state);
-      await fs.writeFile(this.stateFile, encryptedData, 'utf8');
+      const fileContents = JSON.stringify({ encrypted: encryptedData }, null, 2);
+      await fs.writeFile(this.stateFile, fileContents, 'utf8');
       logger.debug('Saved encrypted schedule state');
     } catch (error) {
       logger.error('Error saving encrypted state file', { error: error.message });
