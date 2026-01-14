@@ -1,4 +1,4 @@
-const { ContainerBuilder, TextDisplayBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
+const { ContainerBuilder, TextDisplayBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, LabelBuilder } = require('discord.js');
 const logger = require('../utils/logger');
 const { getAllHostServers } = require('../config/hostServers');
 const { areValidHostServers } = require('../utils/validators');
@@ -82,7 +82,12 @@ async function showMainConfigMenu(interaction, services) {
     new TextDisplayBuilder().setContent(statusText)
   );
 
-  const allRaidTypes = ['BA', 'FT', 'DRS'];
+  const allRaidTypes = ['BA', 'DRS', 'FT'];
+  const raidEmojiMap = {
+    'BA': { id: '1460936708538499202', name: 'ozma' },
+    'FT': { id: '1460937119559192647', name: 'demoncube' },
+    'DRS': { id: '1460943074724155599', name: 'frame_000_delay0' }
+  };
   const raidSelect = new StringSelectMenuBuilder()
     .setCustomId('config_select_raid')
     .setPlaceholder('Select raid type to configure')
@@ -91,7 +96,7 @@ async function showMainConfigMenu(interaction, services) {
         label: `${raidType}${configuredRaids.includes(raidType) ? ' ✓' : ''}`,
         description: configuredRaids.includes(raidType) ? 'Currently configured' : 'Not yet configured',
         value: raidType,
-        emoji: raidType === 'BA' ? '🏛️' : raidType === 'FT' ? '🗼' : '⚔️'
+        emoji: raidEmojiMap[raidType]
       }))
     );
 
@@ -503,7 +508,7 @@ async function resetConfiguration(interaction, services) {
 
     if (config) {
       
-      for (const raidType of ['BA', 'FT', 'DRS']) {
+      for (const raidType of ['BA', 'DRS', 'FT']) {
         const channelKey = `schedule_channel_${raidType.toLowerCase()}`;
         const messageKey = `schedule_message_ids_${raidType.toLowerCase()}`;
         
@@ -573,45 +578,49 @@ async function showColorSettingsModal(interaction, services) {
   const ftColor = config.schedule_color_ft ? '#' + config.schedule_color_ft.toString(16).padStart(6, '0').toUpperCase() : '';
   const drsColor = config.schedule_color_drs ? '#' + config.schedule_color_drs.toString(16).padStart(6, '0').toUpperCase() : '';
 
-  const modal = new ModalBuilder()
-    .setCustomId('config_color_modal')
-    .setTitle('Schedule Color Settings');
-
   const baInput = new TextInputBuilder()
     .setCustomId('color_ba')
-    .setLabel('BA Color (hex)')
     .setStyle(TextInputStyle.Short)
-    .setPlaceholder('#5865F2 or 5865F2')
+    .setPlaceholder('ex: #5865F2 or 5865F2')
     .setRequired(false)
     .setMaxLength(7);
 
   if (baColor) baInput.setValue(baColor);
 
+  const baLabel = new LabelBuilder()
+    .setLabel('BA Color (hex)')
+    .setTextInputComponent(baInput);
+
   const ftInput = new TextInputBuilder()
     .setCustomId('color_ft')
-    .setLabel('FT Color (hex)')
     .setStyle(TextInputStyle.Short)
-    .setPlaceholder('#57F287 or 57F287')
+    .setPlaceholder('ex: #57F287 or 57F287')
     .setRequired(false)
     .setMaxLength(7);
 
   if (ftColor) ftInput.setValue(ftColor);
 
+  const ftLabel = new LabelBuilder()
+    .setLabel('FT Color (hex)')
+    .setTextInputComponent(ftInput);
+
   const drsInput = new TextInputBuilder()
     .setCustomId('color_drs')
-    .setLabel('DRS Color (hex)')
     .setStyle(TextInputStyle.Short)
-    .setPlaceholder('#ED4245 or ED4245')
+    .setPlaceholder('ex: #ED4245 or ED4245')
     .setRequired(false)
     .setMaxLength(7);
 
   if (drsColor) drsInput.setValue(drsColor);
 
-  modal.addComponents(
-    new ActionRowBuilder().addComponents(baInput),
-    new ActionRowBuilder().addComponents(ftInput),
-    new ActionRowBuilder().addComponents(drsInput)
-  );
+  const drsLabel = new LabelBuilder()
+    .setLabel('DRS Color (hex)')
+    .setTextInputComponent(drsInput);
+
+  const modal = new ModalBuilder()
+    .setCustomId('config_color_modal')
+    .setTitle('Schedule Color Settings')
+    .addLabelComponents(baLabel, ftLabel, drsLabel);
 
   await interaction.showModal(modal);
 }
@@ -621,9 +630,9 @@ async function saveColorSettings(interaction, services) {
   const guildId = interaction.guild.id;
 
   try {
-    const baColor = interaction.fields.getTextInputValue('color_ba').trim();
-    const ftColor = interaction.fields.getTextInputValue('color_ft').trim();
+    const baColor = interaction.fields.getTextInputValue('color_ba').trim();    
     const drsColor = interaction.fields.getTextInputValue('color_drs').trim();
+    const ftColor = interaction.fields.getTextInputValue('color_ft').trim();
 
     const colors = {
       ba: parseHexColor(baColor),

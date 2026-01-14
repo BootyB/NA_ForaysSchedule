@@ -291,7 +291,7 @@ class UpdateManager {
       logger.info('Starting update cycle', { configCount: configs.length });
 
       for (const config of configs) {
-        for (const raidType of ['BA', 'FT', 'DRS']) {
+        for (const raidType of ['BA', 'DRS', 'FT']) {
           await this.updateSchedule(config.guild_id, raidType, config);
           
           await new Promise(resolve => setTimeout(resolve, 1000));
@@ -317,12 +317,12 @@ class UpdateManager {
         return { success: false, error: 'Server not configured' };
       }
 
-      for (const raidType of ['BA', 'FT', 'DRS']) {
+      for (const raidType of ['BA', 'DRS', 'FT']) {
         const stateKey = `${guildId}_${raidType}`;
         delete this.state[stateKey];
       }
 
-      for (const raidType of ['BA', 'FT', 'DRS']) {
+      for (const raidType of ['BA', 'DRS', 'FT']) {
         await this.updateSchedule(config.guild_id, raidType, config);
       }
 

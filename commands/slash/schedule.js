@@ -61,19 +61,19 @@ async function showSetupWizard(interaction, services) {
         label: 'Baldesion Arsenal (BA)',
         description: 'Display BA schedules',
         value: 'BA',
-        emoji: '🏛️'
-      },
-      {
-        label: 'Forked Tower (FT)',
-        description: 'Display FT schedules',
-        value: 'FT',
-        emoji: '🗼'
+        emoji: { id: '1460936708538499202', name: 'ozma' }
       },
       {
         label: 'Delubrum Reginae Savage (DRS)',
         description: 'Display DRS schedules',
         value: 'DRS',
-        emoji: '⚔️'
+        emoji: { id: '1460943074724155599', name: 'queen' }
+      },
+      {
+        label: 'Forked Tower (FT)',
+        description: 'Display FT schedules',
+        value: 'FT',
+        emoji: { id: '1460937119559192647', name: 'demoncube' }
       }
     ]);
 
@@ -98,7 +98,7 @@ async function showConfigurationMenu(interaction, services, config) {
   let statusText = `## ⚙️ Server Configuration\n\n`;
   
   const configuredRaids = [];
-  for (const raidType of ['BA', 'FT', 'DRS']) {
+  for (const raidType of ['BA', 'DRS', 'FT']) {
     const channelKey = `schedule_channel_${raidType.toLowerCase()}`;
     const hostsKey = `enabled_hosts_${raidType.toLowerCase()}`;
     
@@ -122,7 +122,12 @@ async function showConfigurationMenu(interaction, services, config) {
     new TextDisplayBuilder().setContent(statusText)
   );
 
-  const allRaidTypes = ['BA', 'FT', 'DRS'];
+  const allRaidTypes = ['BA', 'DRS', 'FT'];
+  const raidEmojiMap = {
+    'BA': { id: '1460936708538499202', name: 'ozma' },
+    'FT': { id: '1460937119559192647', name: 'demoncube' },
+    'DRS': { id: '1460943074724155599', name: 'frame_000_delay0' }
+  };
   const raidSelect = new StringSelectMenuBuilder()
     .setCustomId('config_select_raid')
     .setPlaceholder('Select raid type to configure')
@@ -131,7 +136,7 @@ async function showConfigurationMenu(interaction, services, config) {
         label: `${raidType}${configuredRaids.includes(raidType) ? ' ✓' : ''}`,
         description: configuredRaids.includes(raidType) ? 'Currently configured' : 'Not yet configured',
         value: raidType,
-        emoji: raidType === 'BA' ? '🏛️' : raidType === 'FT' ? '🗼' : '⚔️'
+        emoji: raidEmojiMap[raidType]
       }))
     );
 
