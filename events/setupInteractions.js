@@ -1,6 +1,7 @@
 const { ContainerBuilder, TextDisplayBuilder, StringSelectMenuBuilder, ChannelSelectMenuBuilder, ChannelType, ButtonBuilder, ButtonStyle, ActionRowBuilder } = require('discord.js');
 const logger = require('../utils/logger');
 const { getAllHostServers } = require('../config/hostServers');
+const encryptedDb = require('../config/encryptedDatabase');
 
 const setupState = new Map();
 
@@ -199,11 +200,9 @@ async function handleSetupConfirmation(interaction, services) {
   try {    
     await interaction.deferUpdate();
     
-    const { pool } = services;
     const guildId = interaction.guild.id;
 
     const configData = {
-      guild_id: guildId,
       guild_name: interaction.guild.name,
       setup_complete: 1,
       auto_update: 1
@@ -214,20 +213,10 @@ async function handleSetupConfirmation(interaction, services) {
       const hostsKey = `enabled_hosts_${raidType.toLowerCase()}`;
       
       configData[channelKey] = state.channels[raidType];
-      configData[hostsKey] = JSON.stringify(state.hosts[raidType]);
+      configData[hostsKey] = state.hosts[raidType];
     }
 
-    const fields = Object.keys(configData);
-    const values = Object.values(configData);
-    const placeholders = fields.map(() => '?').join(', ');
-    const updates = fields.map(f => `${f} = ?`).join(', ');
-
-    await pool.query(
-      `INSERT INTO na_bot_server_configs (${fields.join(', ')}) 
-       VALUES (${placeholders})
-       ON DUPLICATE KEY UPDATE ${updates}`,
-      [...values, ...values]
-    );
+    await encryptedDb.upsertServerConfig(guildId, configData);
 
     await services.updateManager.forceUpdate(guildId);
 

@@ -2,6 +2,7 @@ const { ContainerBuilder, TextDisplayBuilder, StringSelectMenuBuilder, ButtonBui
 const logger = require('../utils/logger');
 const { getAllHostServers } = require('../config/hostServers');
 const { areValidHostServers } = require('../utils/validators');
+const encryptedDb = require('../config/encryptedDatabase');
 
 async function handleConfigInteraction(interaction, services) {
   const customId = interaction.customId;
@@ -33,15 +34,11 @@ async function handleConfigInteraction(interaction, services) {
 }
 
 async function showMainConfigMenu(interaction, services) {
-  const { pool } = services;
   const guildId = interaction.guild.id;
 
-  const configs = await pool.query(
-    'SELECT * FROM na_bot_server_configs WHERE guild_id = ?',
-    [guildId]
-  );
+  const config = await encryptedDb.getServerConfig(guildId);
 
-  if (configs.length === 0) {
+  if (!config) {
     const errorContainer = new ContainerBuilder();
     errorContainer.addTextDisplayComponents(
       new TextDisplayBuilder().setContent('❌ Server not configured. Please run `/na-schedule` to set up.')
@@ -53,7 +50,6 @@ async function showMainConfigMenu(interaction, services) {
     return;
   }
 
-  const config = configs[0];
   const container = new ContainerBuilder();
 
   let statusText = `## ⚙️ Server Configuration\n\n`;
@@ -66,7 +62,7 @@ async function showMainConfigMenu(interaction, services) {
     if (config[channelKey] && config[hostsKey]) {
       configuredRaids.push(raidType);
       const channel = interaction.guild.channels.cache.get(config[channelKey]);
-      const hosts = JSON.parse(config[hostsKey]);
+      const hosts = config[hostsKey];
       
       statusText += `**${raidType}:**\n`;
       statusText += `Channel: ${channel ? channel.toString() : 'Not found'}\n`;
@@ -135,15 +131,11 @@ async function showMainConfigMenu(interaction, services) {
 }
 
 async function showRaidConfig(interaction, services, raidType, useEditReply = false) {
-  const { pool } = services;
   const guildId = interaction.guild.id;
 
-  const configs = await pool.query(
-    'SELECT * FROM na_bot_server_configs WHERE guild_id = ?',
-    [guildId]
-  );
+  const config = await encryptedDb.getServerConfig(guildId);
 
-  if (configs.length === 0) {
+  if (!config) {
     const errorContainer = new ContainerBuilder();
     errorContainer.addTextDisplayComponents(
       new TextDisplayBuilder().setContent('❌ Server not configured. Please run `/setup` first.')
@@ -160,9 +152,8 @@ async function showRaidConfig(interaction, services, raidType, useEditReply = fa
     return;
   }
 
-  const config = configs[0];
   const hostsKey = `enabled_hosts_${raidType.toLowerCase()}`;
-  const enabledHosts = config[hostsKey] ? JSON.parse(config[hostsKey]) : [];
+  const enabledHosts = config[hostsKey] || [];
 
   const container = new ContainerBuilder();
 
@@ -203,17 +194,11 @@ async function showRaidConfig(interaction, services, raidType, useEditReply = fa
 }
 
 async function showHostChangeMenu(interaction, services, raidType) {
-  const { pool } = services;
   const guildId = interaction.guild.id;
 
-  const configs = await pool.query(
-    'SELECT * FROM na_bot_server_configs WHERE guild_id = ?',
-    [guildId]
-  );
-
-  const config = configs[0];
+  const config = await encryptedDb.getServerConfig(guildId);
   const hostsKey = `enabled_hosts_${raidType.toLowerCase()}`;
-  const currentHosts = config[hostsKey] ? JSON.parse(config[hostsKey]) : [];
+  const currentHosts = config[hostsKey] || [];
   const allHosts = getAllHostServers();
 
   const container = new ContainerBuilder();
@@ -284,12 +269,9 @@ async function saveHostChanges(interaction, services, raidType) {
 
     const hostsKey = `enabled_hosts_${raidType.toLowerCase()}`;
     
-    await pool.query(
-      `UPDATE na_bot_server_configs 
-       SET ${hostsKey} = ? 
-       WHERE guild_id = ?`,
-      [JSON.stringify(selectedHosts), guildId]
-    );
+    await encryptedDb.updateServerConfig(guildId, {
+      [hostsKey]: selectedHosts
+    });
 
     logger.info('Host servers updated', {
       guildId,
@@ -331,22 +313,15 @@ async function saveHostChanges(interaction, services, raidType) {
 }
 
 async function toggleAutoUpdate(interaction, services) {
-  const { pool } = services;
   const guildId = interaction.guild.id;
 
   try {
-    const configs = await pool.query(
-      'SELECT auto_update FROM na_bot_server_configs WHERE guild_id = ?',
-      [guildId]
-    );
+    const config = await encryptedDb.getServerConfig(guildId);
 
-    const currentValue = configs[0]?.auto_update || 0;
+    const currentValue = config?.auto_update || 0;
     const newValue = currentValue ? 0 : 1;
 
-    await pool.query(
-      'UPDATE na_bot_server_configs SET auto_update = ? WHERE guild_id = ?',
-      [newValue, guildId]
-    );
+    await encryptedDb.updateServerConfig(guildId, { auto_update: newValue });
 
     const successContainer = new ContainerBuilder();
     successContainer.addTextDisplayComponents(
@@ -453,17 +428,12 @@ async function showResetConfirmation(interaction, services) {
 }
 
 async function resetConfiguration(interaction, services) {
-  const { pool } = services;
   const guildId = interaction.guild.id;
 
   try {
-    const configs = await pool.query(
-      'SELECT * FROM na_bot_server_configs WHERE guild_id = ?',
-      [guildId]
-    );
+    const config = await encryptedDb.getServerConfig(guildId);
 
-    if (configs.length > 0) {
-      const config = configs[0];
+    if (config) {
       
       for (const raidType of ['BA', 'FT', 'DRS']) {
         const channelKey = `schedule_channel_${raidType.toLowerCase()}`;
@@ -489,10 +459,7 @@ async function resetConfiguration(interaction, services) {
       }
     }
 
-    await pool.query(
-      'DELETE FROM na_bot_server_configs WHERE guild_id = ?',
-      [guildId]
-    );
+    await encryptedDb.deleteServerConfig(guildId);
 
     const successContainer = new ContainerBuilder();
     successContainer.addTextDisplayComponents(
@@ -530,15 +497,9 @@ async function resetConfiguration(interaction, services) {
 }
 
 async function showColorSettingsModal(interaction, services) {
-  const { pool } = services;
   const guildId = interaction.guild.id;
 
-  const configs = await pool.query(
-    'SELECT schedule_color_ba, schedule_color_ft, schedule_color_drs FROM na_bot_server_configs WHERE guild_id = ?',
-    [guildId]
-  );
-
-  const config = configs[0] || {};
+  const config = await encryptedDb.getServerConfig(guildId) || {};
   
   const baColor = config.schedule_color_ba ? '#' + config.schedule_color_ba.toString(16).padStart(6, '0').toUpperCase() : '';
   const ftColor = config.schedule_color_ft ? '#' + config.schedule_color_ft.toString(16).padStart(6, '0').toUpperCase() : '';
@@ -615,12 +576,11 @@ async function saveColorSettings(interaction, services) {
       return;
     }
 
-    await pool.query(
-      `UPDATE na_bot_server_configs 
-       SET schedule_color_ba = ?, schedule_color_ft = ?, schedule_color_drs = ?
-       WHERE guild_id = ?`,
-      [colors.ba, colors.ft, colors.drs, guildId]
-    );
+    await encryptedDb.updateServerConfig(guildId, {
+      schedule_color_ba: colors.ba,
+      schedule_color_ft: colors.ft,
+      schedule_color_drs: colors.drs
+    });
 
     logger.info('Color settings updated', {
       guildId,

@@ -1,5 +1,6 @@
 const logger = require('../utils/logger');
 const { getAllHostServers } = require('../config/hostServers');
+const encryptedDb = require('../config/encryptedDatabase');
 
 class WhitelistManager {
   constructor(pool) {
@@ -10,25 +11,12 @@ class WhitelistManager {
     try {
       logger.info('Checking guild whitelist', { guildId });
       
-      const query = 'SELECT * FROM na_bot_whitelisted_guilds WHERE guild_id = ? AND is_active = 1';
-      logger.info('Executing whitelist query', { query, params: [guildId] });
-      
-      const result = await this.pool.query(query, [guildId]);
-      
-      logger.info('Query raw result', { 
-        guildId,
-        resultType: Array.isArray(result) ? 'array' : typeof result,
-        resultLength: Array.isArray(result) ? result.length : 'N/A',
-        result: result
-      });
-      
-      const rows = Array.isArray(result) ? result : [];
-      const isWhitelisted = rows.length > 0;
+      const guild = await encryptedDb.getWhitelistedGuild(guildId);
+      const isWhitelisted = guild !== null;
       
       logger.info('Whitelist check result', { 
         guildId, 
-        isWhitelisted,
-        rowCount: rows.length 
+        isWhitelisted
       });
       
       return isWhitelisted;
@@ -44,14 +32,7 @@ class WhitelistManager {
 
   async addGuild(guildId, guildName, addedBy) {
     try {
-      await this.pool.query(
-        `INSERT INTO na_bot_whitelisted_guilds 
-         (guild_id, guild_name, added_by, added_at, is_active) 
-         VALUES (?, ?, ?, NOW(), 1)
-         ON DUPLICATE KEY UPDATE 
-         guild_name = ?, is_active = 1`,
-        [guildId, guildName, addedBy, guildName]
-      );
+      await encryptedDb.addWhitelistedGuild(guildId, guildName, addedBy);
       
       logger.info('Guild added to whitelist', { guildId, guildName, addedBy });
       return true;
@@ -66,10 +47,7 @@ class WhitelistManager {
 
   async removeGuild(guildId) {
     try {
-      await this.pool.query(
-        'UPDATE na_bot_whitelisted_guilds SET is_active = 0 WHERE guild_id = ?',
-        [guildId]
-      );
+      await encryptedDb.removeWhitelistedGuild(guildId);
       
       logger.info('Guild removed from whitelist', { guildId });
       return true;
@@ -84,10 +62,7 @@ class WhitelistManager {
 
   async getAllWhitelistedGuilds() {
     try {
-      const guilds = await this.pool.query(
-        'SELECT * FROM na_bot_whitelisted_guilds WHERE is_active = 1'
-      );
-      return guilds;
+      return await encryptedDb.getAllWhitelistedGuilds();
     } catch (error) {
       logger.error('Error fetching whitelisted guilds', {
         error: error.message

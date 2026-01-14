@@ -1,9 +1,11 @@
 const ScheduleManager = require('./scheduleManager');
 const ScheduleContainerBuilder = require('./containerBuilder');
 const { AttachmentBuilder } = require('discord.js');
-const fs = require('fs').promises;
-const path = require('path');
+const EncryptedStateManager = require('./encryptedStateManager');
 const logger = require('../utils/logger');
+const encryptedDb = require('../config/encryptedDatabase');
+const path = require('path');
+const fs = require('fs');
 
 class UpdateManager {
   constructor(pool, client) {
@@ -11,63 +13,36 @@ class UpdateManager {
     this.client = client;
     this.scheduleManager = new ScheduleManager(pool);
     this.containerBuilder = new ScheduleContainerBuilder(client);
-    this.stateFile = path.join(__dirname, '../data/scheduleState.json');
+    this.stateManager = new EncryptedStateManager();
     this.state = {};
   }
 
   async initialize() {
-    try {
-      const data = await fs.readFile(this.stateFile, 'utf8');
-      this.state = JSON.parse(data);
-      
-      // Clean up old state entries
-      await this.cleanupOldState();
-      
-      logger.info('Loaded schedule state', { stateKeys: Object.keys(this.state).length });
-    } catch (error) {
-      if (error.code === 'ENOENT') {
-        logger.info('No existing state file, starting fresh');
-        this.state = {};
-      } else {
-        logger.error('Error loading state file', { error: error.message });
-        this.state = {};
-      }
-    }
+    await this.stateManager.initialize();
+    this.state = this.stateManager.state;
+    
+    // Clean up old state entries
+    await this.cleanupOldState();
+    
+    logger.info('Loaded encrypted schedule state', { stateKeys: Object.keys(this.state).length });
   }
 
   async cleanupOldState() {
     try {
-      const activeGuilds = await this.pool.query(
-        'SELECT guild_id FROM na_bot_server_configs WHERE setup_complete = 1'
+      const activeGuilds = await encryptedDb.getActiveServerConfigs(
+        'WHERE setup_complete = 1'
       );
       
       const activeGuildIds = new Set(activeGuilds.map(g => g.guild_id));
-      const stateKeys = Object.keys(this.state);
-      let removedCount = 0;
-      
-      for (const key of stateKeys) {
-        const guildId = key.split('_')[0];
-        if (!activeGuildIds.has(guildId)) {
-          delete this.state[key];
-          removedCount++;
-        }
-      }
-      
-      if (removedCount > 0) {
-        logger.info('Cleaned up old state entries', { removed: removedCount });
-        await this.saveState();
-      }
+      await this.stateManager.cleanupOldState(activeGuildIds);
+      this.state = this.stateManager.state;
     } catch (error) {
       logger.error('Error cleaning up state', { error: error.message });
     }
   }
 
   async saveState() {
-    try {
-      await fs.writeFile(this.stateFile, JSON.stringify(this.state, null, 2));
-    } catch (error) {
-      logger.error('Error saving state file', { error: error.message });
-    }
+    await this.stateManager.save();
   }
 
   getBannerAttachment(raidType) {
@@ -79,8 +54,7 @@ class UpdateManager {
     try {
       const filename = `${raidType.toLowerCase()}_opening.avif`;
       const filepath = path.join(__dirname, '../assets', filename);
-      const fsSync = require('fs');
-      if (!fsSync.existsSync(filepath)) {
+      if (!fs.existsSync(filepath)) {
         logger.debug('Banner file not found', { raidType, filepath });
         return null;
       }
@@ -97,14 +71,12 @@ class UpdateManager {
       const stateKey = `${guildId}_${raidType}`;
       
       const hostsKey = `enabled_hosts_${raidType.toLowerCase()}`;
-      const enabledHostsJson = config[hostsKey];
+      const enabledHosts = config[hostsKey];
       
-      if (!enabledHostsJson) {
+      if (!enabledHosts) {
         logger.debug('No enabled hosts for raid type', { guildId, raidType });
         return;
       }
-
-      const enabledHosts = JSON.parse(enabledHostsJson);
       if (!enabledHosts || enabledHosts.length === 0) {
         logger.debug('Empty enabled hosts array', { guildId, raidType });
         return;
@@ -278,27 +250,17 @@ class UpdateManager {
       }
 
       if (newMessageIds.length > 0 || overviewMessageId) {
-        const updates = [];
-        const params = [];
+        const updates = {};
         
         if (newMessageIds.length > 0) {
-          updates.push(`${messageKey} = ?`);
-          params.push(JSON.stringify(newMessageIds));
+          updates[messageKey] = newMessageIds;
         }
         
         if (overviewMessageId) {
-          updates.push(`${overviewMessageKey} = ?`);
-          params.push(overviewMessageId);
+          updates[overviewMessageKey] = overviewMessageId;
         }
         
-        params.push(guildId);
-        
-        await this.pool.query(
-          `UPDATE na_bot_server_configs 
-           SET ${updates.join(', ')} 
-           WHERE guild_id = ?`,
-          params
-        );
+        await encryptedDb.updateServerConfig(guildId, updates);
       }
 
       this.state[stateKey] = {
@@ -327,9 +289,8 @@ class UpdateManager {
 
   async updateAllSchedules() {
     try {
-      const configs = await this.pool.query(
-        `SELECT * FROM na_bot_server_configs 
-         WHERE setup_complete = 1 AND auto_update = 1`
+      const configs = await encryptedDb.getActiveServerConfigs(
+        'WHERE setup_complete = 1 AND auto_update = 1'
       );
 
       logger.info('Starting update cycle', { configCount: configs.length });
@@ -354,17 +315,12 @@ class UpdateManager {
 
   async forceUpdate(guildId) {
     try {
-      const configs = await this.pool.query(
-        'SELECT * FROM na_bot_server_configs WHERE guild_id = ?',
-        [guildId]
-      );
+      const config = await encryptedDb.getServerConfig(guildId);
 
-      if (configs.length === 0) {
+      if (!config) {
         logger.warn('No config found for force update', { guildId });
         return { success: false, error: 'Server not configured' };
       }
-
-      const config = configs[0];
 
       for (const raidType of ['BA', 'FT', 'DRS']) {
         const stateKey = `${guildId}_${raidType}`;
@@ -388,17 +344,12 @@ class UpdateManager {
 
   async regenerateSchedule(guildId, raidType) {
     try {
-      const configs = await this.pool.query(
-        'SELECT * FROM na_bot_server_configs WHERE guild_id = ?',
-        [guildId]
-      );
+      const config = await encryptedDb.getServerConfig(guildId);
 
-      if (configs.length === 0) {
+      if (!config) {
         logger.warn('No config found for regeneration', { guildId });
         return { success: false, error: 'Server not configured' };
       }
-
-      const config = configs[0];
 
       const channelKey = `schedule_channel_${raidType.toLowerCase()}`;
       const channelId = config[channelKey];
@@ -428,7 +379,7 @@ class UpdateManager {
       }
 
       const messageKey = `schedule_message_${raidType.toLowerCase()}`;
-      const existingMessageIds = config[messageKey] ? JSON.parse(config[messageKey]) : [];
+      const existingMessageIds = config[messageKey] || [];
       
       for (const messageId of existingMessageIds) {
         try {
@@ -444,12 +395,10 @@ class UpdateManager {
         await new Promise(resolve => setTimeout(resolve, 100));
       }
 
-      await this.pool.query(
-        `UPDATE na_bot_server_configs 
-         SET ${messageKey} = NULL, ${overviewMessageKey} = NULL 
-         WHERE guild_id = ?`,
-        [guildId]
-      );
+      await encryptedDb.updateServerConfig(guildId, {
+        [messageKey]: null,
+        [overviewMessageKey]: null
+      });
 
       const stateKey = `${guildId}_${raidType}`;
       delete this.state[stateKey];

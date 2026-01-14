@@ -1,5 +1,6 @@
 const { SlashCommandBuilder, PermissionFlagsBits, MessageFlags, ContainerBuilder, TextDisplayBuilder, ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const logger = require('../../utils/logger');
+const encryptedDb = require('../../config/encryptedDatabase');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -8,7 +9,7 @@ module.exports = {
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
   
   async execute(interaction, services) {
-    const { pool, whitelistManager } = services;
+    const { whitelistManager } = services;
     const guildId = interaction.guild.id;
 
     const isWhitelisted = await whitelistManager.isGuildWhitelisted(guildId);
@@ -23,15 +24,12 @@ module.exports = {
       return;
     }
 
-    const existingConfig = await pool.query(
-      'SELECT * FROM na_bot_server_configs WHERE guild_id = ?',
-      [guildId]
-    );
+    const existingConfig = await encryptedDb.getServerConfig(guildId);
 
-    if (existingConfig.length === 0 || !existingConfig[0].setup_complete) {
+    if (!existingConfig || !existingConfig.setup_complete) {
       await showSetupWizard(interaction, services);
     } else {
-      await showConfigurationMenu(interaction, services, existingConfig[0]);
+      await showConfigurationMenu(interaction, services, existingConfig);
     }
   }
 };
@@ -107,7 +105,7 @@ async function showConfigurationMenu(interaction, services, config) {
     if (config[channelKey] && config[hostsKey]) {
       configuredRaids.push(raidType);
       const channel = interaction.guild.channels.cache.get(config[channelKey]);
-      const hosts = JSON.parse(config[hostsKey]);
+      const hosts = config[hostsKey]; // Already decrypted and parsed by encryptedDb
       
       statusText += `**${raidType}:**\n`;
       statusText += `Channel: ${channel ? channel.toString() : 'Not found'}\n`;
