@@ -19,6 +19,7 @@ const HOST_SERVERS = {
     guildId: '750103971187654736',
     icon: 'https://i.gyazo.com/0857836cdbc89e27272fee33eaa77b43.webp',
     inviteLink: 'https://discord.gg/c-a-f-e',
+    description: 'Join or host a Forays raid in Eureka, Bozja/Zadnor, or The Occult Crescent from FFXIV!',
     channels: {
       'BA': '956367612659511406',
       'FT': '1377808695102279862',
@@ -139,32 +140,31 @@ async function getGuildStats(serverName, client) {
   const guildId = getGuildId(serverName);
   if (!guildId || !client) return null;
   
-  const guild = client.guilds.cache.get(guildId);
-  if (guild) {
-    return {
-      createdAt: guild.createdAt,
-      description: guild.description,
-      memberCount: guild.memberCount,
-      fromInvite: false
-    };
-  }
-  
   const inviteLink = HOST_SERVERS[serverName]?.inviteLink;
   if (!inviteLink) return null;
   
   try {
     const inviteCode = inviteLink.split('/').pop();
-    
-    const invite = await client.fetchInvite(inviteCode);
+    const invite = await client.fetchInvite(inviteCode, { withCounts: true, withExpiration: true });
     
     if (!invite.guild) return null;
     
-    return {
+    // Start with invite data (has description)
+    const stats = {
       createdAt: invite.guild.createdAt || null,
-      description: invite.guild.description || null,
+      description: invite.guild.description || HOST_SERVERS[serverName]?.description || null,
       memberCount: invite.approximateMemberCount || null,
       fromInvite: true
     };
+    
+    // If bot is in the guild, use exact member count instead of approximate
+    const guild = client.guilds.cache.get(guildId);
+    if (guild) {
+      stats.memberCount = guild.memberCount;
+      stats.fromInvite = false;
+    }
+    
+    return stats;
   } catch (error) {
     return null;
   }
