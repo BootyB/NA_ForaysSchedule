@@ -91,7 +91,7 @@ Continued use of the Bot after changes to these Terms constitutes acceptance of 
 The Bot integrates with:
 
 - Discord (subject to Discord's Terms of Service and Privacy Policy)
-- Final Fantasy XIV schedule data from third-party sources
+- Final Fantasy XIV Forays Raid schedule data from third-party discord servers.
 
 We are not responsible for the availability, accuracy, or policies of these third-party services.
 
