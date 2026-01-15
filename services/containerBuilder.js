@@ -4,6 +4,15 @@ const { getServerIcon, getInviteLink, getChannelLink, getGuildStats } = require(
 const { hashCodeSchedules } = require('../utils/hashCode');
 const logger = require('../utils/logger');
 
+// Format emoji object to Discord string format
+function formatEmoji(emoji) {
+  if (typeof emoji === 'string') return emoji;
+  if (emoji && emoji.id) {
+    return emoji.animated ? `<a:${emoji.name}:${emoji.id}>` : `<:${emoji.name}:${emoji.id}>`;
+  }
+  return '';
+}
+
 class ScheduleContainerBuilder {
   constructor(client = null) {
     this.componentCount = 0;
@@ -81,7 +90,7 @@ class ScheduleContainerBuilder {
       );
       headerContent = `### Multi-Server *Forked Tower* Schedule for North American and Materia Data Centers\n`;
     } else {
-      headerContent = `## ${raidInfo.emoji} ${raidInfo.name} Schedule\n### Multi-Server ${raidInfo.name} Schedule for North American and Materia Data Centers\n`;
+      headerContent = `## ${formatEmoji(raidInfo.emoji)} ${raidInfo.name} Schedule\n### Multi-Server ${raidInfo.name} Schedule for North American and Materia Data Centers\n`;
     }
     
     const calendarSection = 
@@ -307,7 +316,7 @@ class ScheduleContainerBuilder {
     }
     
     const emptyText = 
-      `# ${raidInfo.emoji} ${raidInfo.name} Runs\n\n` +
+      `# ${formatEmoji(raidInfo.emoji)} ${raidInfo.name} Runs\n\n` +
       `No runs currently scheduled for the next 3 months.\n\n` +
       `*This schedule updates automatically every 60 seconds.*`;
     
