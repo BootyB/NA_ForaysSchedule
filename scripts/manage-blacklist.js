@@ -37,10 +37,26 @@ async function addGuild(guildId, guildName, addedBy, reason = null) {
 
 async function removeGuild(guildId) {
   try {
-    const encryptedGuildId = encrypt(guildId);
+    const encryptedGuilds = await pool.query(
+      'SELECT id, guild_id FROM na_bot_blacklisted_guilds WHERE is_active = 1'
+    );
+    
+    const matchingGuild = encryptedGuilds.find(guild => {
+      try {
+        return decrypt(guild.guild_id) === guildId;
+      } catch {
+        return false;
+      }
+    });
+    
+    if (!matchingGuild) {
+      console.log('⚠️ Guild not found in blacklist or already removed.');
+      return;
+    }
+    
     await pool.query(
-      'UPDATE na_bot_blacklisted_guilds SET is_active = 0 WHERE guild_id = ?',
-      [encryptedGuildId]
+      'UPDATE na_bot_blacklisted_guilds SET is_active = 0 WHERE id = ?',
+      [matchingGuild.id]
     );
     
     console.log('✅ Guild removed from blacklist:');

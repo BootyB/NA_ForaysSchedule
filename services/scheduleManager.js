@@ -25,7 +25,7 @@ class ScheduleManager {
       const sourceDbName = process.env.DB_SOURCE_NAME || process.env.DB_NAME;
       const tableName = process.env.DB_TABLE_NAME;
       
-      logger.debug('Database configuration', { 
+      logger.debug('Database configuration', {
         sourceDbName, 
         tableName,
         DB_SOURCE_NAME: process.env.DB_SOURCE_NAME,

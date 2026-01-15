@@ -2,12 +2,33 @@ const winston = require('winston');
 const { format } = winston;
 const path = require('path');
 
+const sanitizeSensitiveData = format((info) => {
+  if (process.env.NODE_ENV !== 'production') {
+    return info;
+  }
+  
+  const sensitiveFields = ['guildId', 'userId', 'channelId', 'messageId'];
+  
+  for (const field of sensitiveFields) {
+    if (info[field] && typeof info[field] === 'string') {
+      info[field] = '***' + info[field].slice(-4);
+    }
+  }
+  
+  if (info.guildName && typeof info.guildName === 'string') {
+    info.guildName = '[REDACTED]';
+  }
+  
+  return info;
+});
+
 const logger = winston.createLogger({
   level: process.env.LOG_LEVEL || 'info',
   format: format.combine(
     format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
     format.errors({ stack: true }),
     format.splat(),
+    sanitizeSensitiveData(),
     format.json()
   ),
   defaultMeta: { service: 'na-schedule-bot' },

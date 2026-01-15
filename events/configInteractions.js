@@ -1,7 +1,7 @@
 const { ContainerBuilder, TextDisplayBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, LabelBuilder } = require('discord.js');
 const logger = require('../utils/logger');
 const { getAllHostServers, getServerEmoji } = require('../config/hostServers');
-const { areValidHostServers } = require('../utils/validators');
+const { areValidHostServers, isValidRaidType } = require('../utils/validators');
 const encryptedDb = require('../config/encryptedDatabase');
 const { buildConfigMenu } = require('../utils/configMenuBuilder');
 
@@ -10,15 +10,31 @@ async function handleConfigInteraction(interaction, services) {
 
   if (customId === 'config_select_raid') {
     const raidType = interaction.values[0];
+    if (!isValidRaidType(raidType)) {
+      await interaction.reply({ content: '❌ Invalid raid type.', flags: 64 });
+      return;
+    }
     await showRaidConfig(interaction, services, raidType);
   } else if (customId.startsWith('config_change_hosts_')) {
     const raidType = customId.split('_').pop().toUpperCase();
+    if (!isValidRaidType(raidType)) {
+      await interaction.reply({ content: '❌ Invalid raid type.', flags: 64 });
+      return;
+    }
     await showHostChangeMenu(interaction, services, raidType);
   } else if (customId.startsWith('config_save_hosts_')) {
     const raidType = customId.split('_').pop().toUpperCase();
+    if (!isValidRaidType(raidType)) {
+      await interaction.reply({ content: '❌ Invalid raid type.', flags: 64 });
+      return;
+    }
     await saveHostChanges(interaction, services, raidType);
   } else if (customId.startsWith('config_regenerate_raid_')) {
     const raidType = customId.split('_').pop().toUpperCase();
+    if (!isValidRaidType(raidType)) {
+      await interaction.reply({ content: '❌ Invalid raid type.', flags: 64 });
+      return;
+    }
     await regenerateRaidSchedule(interaction, services, raidType);
   } else if (customId === 'config_toggle_auto_update') {
     await toggleAutoUpdate(interaction, services);
