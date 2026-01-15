@@ -13,6 +13,12 @@ function buildConfigMenu(config, guild) {
 
   let statusText = ``;
   
+  const raidNames = {
+    'BA': 'Baldesion Arsenal',
+    'DRS': 'Delubrum Reginae (Savage)',
+    'FT': 'The Forked Tower: Blood'
+  };
+  
   const configuredRaids = [];
   for (const raidType of ['BA', 'DRS', 'FT']) {
     const channelKey = `schedule_channel_${raidType.toLowerCase()}`;
@@ -23,11 +29,11 @@ function buildConfigMenu(config, guild) {
       const channel = guild.channels.cache.get(config[channelKey]);
       const hosts = config[hostsKey];
       
-      statusText += `**${raidType}:**\n`;
+      statusText += `__**${raidNames[raidType]}**__\n`;
       statusText += `Channel: ${channel ? channel.toString() : 'Not found'}\n`;
-      statusText += `Servers: ${hosts.join(', ')}\n\n`;
+      statusText += `Servers:\n-# ${hosts.join(', ')}\n\n`;
     } else {
-      statusText += `**${raidType}:** ❌ Not configured\n\n`;
+      statusText += `**${raidNames[raidType]}:** ❌ Not configured\n\n`;
     }
   }
 

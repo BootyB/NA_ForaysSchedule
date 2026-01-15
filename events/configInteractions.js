@@ -92,7 +92,11 @@ async function showRaidConfig(interaction, services, raidType, useEditReply = fa
   const configText = 
     `## ${raidType} Configuration\n\n` +
     `**Currently Enabled Servers:**\n` +
-    (enabledHosts.length > 0 ? enabledHosts.map(h => `● ${h}`).join('\n') : 'None') +
+    (enabledHosts.length > 0 ? enabledHosts.map(h => {
+      const emoji = getServerEmoji(h);
+      const emojiString = emoji ? `<${emoji.animated ? 'a' : ''}:${emoji.name}:${emoji.id}>` : '●';
+      return `${emojiString} ${h}`;
+    }).join('\n') : 'None') +
     `\n\nUse the buttons below to modify settings.`;
 
   container.addTextDisplayComponents(
@@ -397,7 +401,11 @@ async function regenerateRaidSchedule(interaction, services, raidType) {
             const configText = 
               `## ${raidType} Configuration\n\n` +
               `**Currently Enabled Servers:**\n` +
-              (enabledHosts.length > 0 ? enabledHosts.map(h => `● ${h}`).join('\n') : 'None') +
+              (enabledHosts.length > 0 ? enabledHosts.map(h => {
+                const emoji = getServerEmoji(h);
+                const emojiString = emoji ? `<${emoji.animated ? 'a' : ''}:${emoji.name}:${emoji.id}>` : '●';
+                return `${emojiString} ${h}`;
+              }).join('\n') : 'None') +
               `\n\nUse the buttons below to modify settings.`;
 
             container.addTextDisplayComponents(
@@ -459,7 +467,11 @@ async function regenerateRaidSchedule(interaction, services, raidType) {
       const configText = 
         `## ${raidType} Configuration\n\n` +
         `**Currently Enabled Servers:**\n` +
-        (enabledHosts.length > 0 ? enabledHosts.map(h => `● ${h}`).join('\n') : 'None') +
+        (enabledHosts.length > 0 ? enabledHosts.map(h => {
+          const emoji = getServerEmoji(h);
+          const emojiString = emoji ? `<${emoji.animated ? 'a' : ''}:${emoji.name}:${emoji.id}>` : '●';
+          return `${emojiString} ${h}`;
+        }).join('\n') : 'None') +
         `\n\nUse the buttons below to modify settings.\n\n` +
         `*Building...*`;
 
@@ -500,7 +512,11 @@ async function regenerateRaidSchedule(interaction, services, raidType) {
         const successText = 
           `## ${raidType} Configuration\n\n` +
           `**Currently Enabled Servers:**\n` +
-          (enabledHosts.length > 0 ? enabledHosts.map(h => `● ${h}`).join('\n') : 'None') +
+          (enabledHosts.length > 0 ? enabledHosts.map(h => {
+            const emoji = getServerEmoji(h);
+            const emojiString = emoji ? `<${emoji.animated ? 'a' : ''}:${emoji.name}:${emoji.id}>` : '●';
+            return `${emojiString} ${h}`;
+          }).join('\n') : 'None') +
           `\n\nUse the buttons below to modify settings.\n\n` +
           `*✅ Success*`;
 
@@ -530,7 +546,11 @@ async function regenerateRaidSchedule(interaction, services, raidType) {
             const finalText = 
               `## ${raidType} Configuration\n\n` +
               `**Currently Enabled Servers:**\n` +
-              (enabledHosts.length > 0 ? enabledHosts.map(h => `● ${h}`).join('\n') : 'None') +
+              (enabledHosts.length > 0 ? enabledHosts.map(h => {
+                const emoji = getServerEmoji(h);
+                const emojiString = emoji ? `<${emoji.animated ? 'a' : ''}:${emoji.name}:${emoji.id}>` : '●';
+                return `${emojiString} ${h}`;
+              }).join('\n') : 'None') +
               `\n\nUse the buttons below to modify settings.`;
 
             const finalContainer = new ContainerBuilder();
@@ -559,7 +579,11 @@ async function regenerateRaidSchedule(interaction, services, raidType) {
         const errorText = 
           `## ${raidType} Configuration\n\n` +
           `**Currently Enabled Servers:**\n` +
-          (enabledHosts.length > 0 ? enabledHosts.map(h => `● ${h}`).join('\n') : 'None') +
+          (enabledHosts.length > 0 ? enabledHosts.map(h => {
+            const emoji = getServerEmoji(h);
+            const emojiString = emoji ? `<${emoji.animated ? 'a' : ''}:${emoji.name}:${emoji.id}>` : '●';
+            return `${emojiString} ${h}`;
+          }).join('\n') : 'None') +
           `\n\nUse the buttons below to modify settings.\n\n` +
           `*❌ Error: ${result.error}*`;
 
@@ -579,7 +603,11 @@ async function regenerateRaidSchedule(interaction, services, raidType) {
         });
 
         setTimeout(async () => {
-          try {
+          try {{
+                const emoji = getServerEmoji(h);
+                const emojiString = emoji ? `<${emoji.animated ? 'a' : ''}:${emoji.name}:${emoji.id}>` : '●';
+                return `${emojiString} ${h}`;
+              }
             const finalText = 
               `## ${raidType} Configuration\n\n` +
               `**Currently Enabled Servers:**\n` +
