@@ -90,7 +90,7 @@ for (const file of eventFiles) {
   logger.info(`Loaded event: ${event.name}`);
 }
 
-client.once('ready', async (client) => {
+client.once('clientReady', async (client) => {
   services.scheduleManager = new ScheduleManager(pool);
   services.containerBuilder = new ScheduleContainerBuilder();
   services.whitelistManager = new WhitelistManager(pool);
