@@ -65,21 +65,21 @@ class ScheduleContainerBuilder {
           new MediaGalleryItemBuilder().setURL(bannerImages.BA)
         )
       );
-      headerContent = `### Multi-Server Baldesion Arsenal Schedule for North American and Materia Data Centers\n`;
+      headerContent = `### Multi-Server *Baldesion Arsenal* Schedule for North American and Materia Data Centers\n`;
     } else if (raidType === 'DRS') {
       container.addMediaGalleryComponents(
         new MediaGalleryBuilder().addItems(
           new MediaGalleryItemBuilder().setURL(bannerImages.DRS)
         )
       );
-      headerContent = `### Multi-Server Delubrum Reginae Savage Schedule for North American and Materia Data Centers\n`;
+      headerContent = `### Multi-Server *Delubrum Reginae Savage* Schedule for North American and Materia Data Centers\n`;
     } else if (raidType === 'FT') {
       container.addMediaGalleryComponents(
         new MediaGalleryBuilder().addItems(
           new MediaGalleryItemBuilder().setURL(bannerImages.FT)
         )
       );
-      headerContent = `### Multi-Server Forked Tower Schedule for North American and Materia Data Centers\n`;
+      headerContent = `### Multi-Server *Forked Tower* Schedule for North American and Materia Data Centers\n`;
     } else {
       headerContent = `## ${raidInfo.emoji} ${raidInfo.name} Schedule\n### Multi-Server ${raidInfo.name} Schedule for North American and Materia Data Centers\n`;
     }
