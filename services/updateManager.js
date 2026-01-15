@@ -21,7 +21,6 @@ class UpdateManager {
     await this.stateManager.initialize();
     this.state = this.stateManager.state;
     
-    // Clean up old state entries
     await this.cleanupOldState();
     
     logger.info('Loaded encrypted schedule state', { stateKeys: Object.keys(this.state).length });
@@ -91,7 +90,8 @@ class UpdateManager {
       }
 
       const colorKey = `schedule_color_${raidType.toLowerCase()}`;
-      const customColor = config[colorKey] || null;
+      const colorValue = config[colorKey];
+      const customColor = colorValue === -1 ? undefined : (colorValue !== undefined ? colorValue : undefined);
 
       const containers = await this.containerBuilder.buildScheduleContainers(groupedRuns, raidType, customColor);
       
@@ -174,7 +174,13 @@ class UpdateManager {
           overviewMessageId = newMessage.id;
           logger.debug('Created new overview message', { guildId, raidType });
         } else {
-          logger.debug('Keeping existing overview message', { guildId, raidType, messageId: existingOverviewId });
+          const existingMessage = await channel.messages.fetch(existingOverviewId).catch(() => null);
+          if (existingMessage) {
+            await existingMessage.edit({ components: [overviewContainer.toJSON()] });
+            logger.debug('Updated existing overview message', { guildId, raidType, messageId: existingOverviewId });
+          } else {
+            logger.warn('Overview message not found, will recreate on next update', { guildId, raidType, messageId: existingOverviewId });
+          }
         }
       } catch (error) {
         logger.error('Error updating overview message', {
@@ -196,7 +202,6 @@ class UpdateManager {
           if (existingMessageIds[i]) {
             const message = await channel.messages.fetch(existingMessageIds[i]).catch(() => null);
             if (message) {
-              // Check if the message is owned by this bot
               if (message.author.id !== channel.client.user.id) {
                 logger.warn('Schedule message not owned by bot, recreating', { 
                   guildId, 

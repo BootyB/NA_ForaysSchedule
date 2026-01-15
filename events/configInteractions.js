@@ -3,6 +3,7 @@ const logger = require('../utils/logger');
 const { getAllHostServers } = require('../config/hostServers');
 const { areValidHostServers } = require('../utils/validators');
 const encryptedDb = require('../config/encryptedDatabase');
+const { buildConfigMenu } = require('../utils/configMenuBuilder');
 
 async function handleConfigInteraction(interaction, services) {
   const customId = interaction.customId;
@@ -53,84 +54,7 @@ async function showMainConfigMenu(interaction, services) {
     return;
   }
 
-  const container = new ContainerBuilder();
-
-  let statusText = `## ⚙️ Server Configuration\n\n`;
-  
-  const configuredRaids = [];
-  for (const raidType of ['BA', 'FT', 'DRS']) {
-    const channelKey = `schedule_channel_${raidType.toLowerCase()}`;
-    const hostsKey = `enabled_hosts_${raidType.toLowerCase()}`;
-    
-    if (config[channelKey] && config[hostsKey]) {
-      configuredRaids.push(raidType);
-      const channel = interaction.guild.channels.cache.get(config[channelKey]);
-      const hosts = config[hostsKey];
-      
-      statusText += `**${raidType}:**\n`;
-      statusText += `Channel: ${channel ? channel.toString() : 'Not found'}\n`;
-      statusText += `Servers: ${hosts.join(', ')}\n\n`;
-    } else {
-      statusText += `**${raidType}:** ❌ Not configured\n\n`;
-    }
-  }
-
-  statusText += `**Auto-Update:** ${config.auto_update ? '✅ Enabled' : '❌ Disabled'}\n\n`;
-  statusText += `Select a raid type below to add or modify its settings.`;
-
-  container.addTextDisplayComponents(
-    new TextDisplayBuilder().setContent(statusText)
-  );
-
-  const allRaidTypes = ['BA', 'DRS', 'FT'];
-  const raidEmojiMap = {
-    'BA': { id: '1460936708538499202', name: 'ozma' },
-    'FT': { id: '1460937119559192647', name: 'demoncube' },
-    'DRS': { id: '1460943074724155599', name: 'frame_000_delay0' }
-  };
-  const raidSelect = new StringSelectMenuBuilder()
-    .setCustomId('config_select_raid')
-    .setPlaceholder('Select raid type to configure')
-    .addOptions(
-      allRaidTypes.map(raidType => ({
-        label: `${raidType}${configuredRaids.includes(raidType) ? ' ✓' : ''}`,
-        description: configuredRaids.includes(raidType) ? 'Currently configured' : 'Not yet configured',
-        value: raidType,
-        emoji: raidEmojiMap[raidType]
-      }))
-    );
-
-  container.addActionRowComponents(
-    new ActionRowBuilder().addComponents(raidSelect)
-  );
-
-  const toggleButton = new ButtonBuilder()
-    .setCustomId('config_toggle_auto_update')
-    .setLabel(config.auto_update ? 'Disable Auto-Update' : 'Enable Auto-Update')
-    .setStyle(config.auto_update ? ButtonStyle.Danger : ButtonStyle.Success);
-
-  const refreshButton = new ButtonBuilder()
-    .setCustomId('config_refresh_schedules')
-    .setLabel('🔄 Refresh Now')
-    .setStyle(ButtonStyle.Primary);
-
-  const colorButton = new ButtonBuilder()
-    .setCustomId('config_color_settings')
-    .setLabel('🎨 Color Settings')
-    .setStyle(ButtonStyle.Secondary);
-
-  const resetButton = new ButtonBuilder()
-    .setCustomId('config_reset_confirmation')
-    .setLabel('🗑️ Reset Config')
-    .setStyle(ButtonStyle.Danger);
-
-  container.addActionRowComponents(
-    new ActionRowBuilder().addComponents(toggleButton, refreshButton)
-  );
-
-  container.addActionRowComponents(
-    new ActionRowBuilder().addComponents(colorButton, resetButton)
-  );
+  const container = buildConfigMenu(config, interaction.guild);
 
   await interaction.update({
     components: [container],
@@ -268,7 +192,6 @@ async function saveHostChanges(interaction, services, raidType) {
   try {
     await interaction.deferUpdate();
 
-    // Validate selected hosts
     if (!areValidHostServers(selectedHosts)) {
       logger.warn('Invalid host servers selected', { guildId, raidType, selectedHosts });
       
@@ -475,7 +398,8 @@ async function showResetConfirmation(interaction, services) {
       '● All raid type settings\n' +
       '● Channel assignments\n' +
       '● Host server selections\n' +
-      '● All schedule messages will be removed\n\n' +
+      '● Custom accent colors\n' +
+      '● All active schedule containers (overview and schedule messages)\n\n' +
       '**This action cannot be undone!**'
     )
   );
@@ -504,29 +428,51 @@ async function resetConfiguration(interaction, services) {
   const guildId = interaction.guild.id;
 
   try {
+    // Defer the update immediately to prevent interaction timeout
+    await interaction.deferUpdate();
+    
     const config = await encryptedDb.getServerConfig(guildId);
 
     if (config) {
-      
+      // Delete all schedule messages and overview containers
       for (const raidType of ['BA', 'DRS', 'FT']) {
         const channelKey = `schedule_channel_${raidType.toLowerCase()}`;
-        const messageKey = `schedule_message_ids_${raidType.toLowerCase()}`;
+        const channelId = config[channelKey];
         
-        if (config[channelKey] && config[messageKey]) {
+        if (channelId) {
           try {
-            const channel = await interaction.guild.channels.fetch(config[channelKey]);
-            const messageIds = JSON.parse(config[messageKey]);
+            const channel = await interaction.guild.channels.fetch(channelId);
             
-            for (const msgId of messageIds) {
+            // Delete overview message
+            const overviewKey = `schedule_overview_${raidType.toLowerCase()}`;
+            const overviewId = config[overviewKey];
+            if (overviewId) {
               try {
-                const message = await channel.messages.fetch(msgId);
-                await message.delete();
+                const overviewMsg = await channel.messages.fetch(overviewId);
+                await overviewMsg.delete();
+                logger.debug('Deleted overview message', { guildId, raidType });
               } catch (err) {
-                logger.debug('Could not delete message', { messageId: msgId });
+                logger.debug('Could not delete overview message', { messageId: overviewId });
+              }
+            }
+            
+            // Delete schedule messages
+            const messageKey = `schedule_message_${raidType.toLowerCase()}`;
+            const messageIds = config[messageKey];
+            if (messageIds) {
+              const parsedIds = Array.isArray(messageIds) ? messageIds : JSON.parse(messageIds);
+              for (const msgId of parsedIds) {
+                try {
+                  const message = await channel.messages.fetch(msgId);
+                  await message.delete();
+                  logger.debug('Deleted schedule message', { guildId, raidType, messageId: msgId });
+                } catch (err) {
+                  logger.debug('Could not delete message', { messageId: msgId });
+                }
               }
             }
           } catch (err) {
-            logger.debug('Could not access channel', { channelId: config[channelKey] });
+            logger.debug('Could not access channel', { channelId });
           }
         }
       }
@@ -542,7 +488,7 @@ async function resetConfiguration(interaction, services) {
       )
     );
 
-    await interaction.update({
+    await interaction.editReply({
       components: [successContainer],
       flags: 64 | 32768
     });
@@ -562,7 +508,7 @@ async function resetConfiguration(interaction, services) {
     errorContainer.addTextDisplayComponents(
       new TextDisplayBuilder().setContent('❌ Error resetting configuration. Please try again.')
     );
-    await interaction.update({
+    await interaction.editReply({
       components: [errorContainer],
       flags: 64 | 32768
     });
@@ -574,44 +520,65 @@ async function showColorSettingsModal(interaction, services) {
 
   const config = await encryptedDb.getServerConfig(guildId) || {};
   
-  const baColor = config.schedule_color_ba ? '#' + config.schedule_color_ba.toString(16).padStart(6, '0').toUpperCase() : '';
-  const ftColor = config.schedule_color_ft ? '#' + config.schedule_color_ft.toString(16).padStart(6, '0').toUpperCase() : '';
-  const drsColor = config.schedule_color_drs ? '#' + config.schedule_color_drs.toString(16).padStart(6, '0').toUpperCase() : '';
+  logger.info('Color settings modal - raw config values', {
+    guildId,
+    ba: config.schedule_color_ba,
+    ft: config.schedule_color_ft,
+    drs: config.schedule_color_drs
+  });
+  
+  const formatColorForInput = (colorValue) => {
+    if (colorValue === null || colorValue === undefined) return '';
+    const numValue = typeof colorValue === 'string' ? parseInt(colorValue, 10) : colorValue;
+    if (numValue === -1) return '';
+    if (typeof numValue === 'number' && numValue >= 0) {
+      return '#' + numValue.toString(16).padStart(6, '0').toUpperCase();
+    }
+    return '';
+  };
+  
+  const baColor = formatColorForInput(config.schedule_color_ba);
+  const ftColor = formatColorForInput(config.schedule_color_ft);
+  const drsColor = formatColorForInput(config.schedule_color_drs);
+  
+  logger.info('Color settings modal - formatted values', {
+    guildId,
+    baColor,
+    ftColor,
+    drsColor
+  });
 
   const baInput = new TextInputBuilder()
     .setCustomId('color_ba')
     .setStyle(TextInputStyle.Short)
-    .setPlaceholder('ex: #5865F2 or 5865F2')
+    .setPlaceholder('ex: #5865F2, 5865F2, none, or default')
     .setRequired(false)
-    .setMaxLength(7);
+    .setMaxLength(7)
+    .setValue(baColor || '');
 
-  if (baColor) baInput.setValue(baColor);
+  const ftInput = new TextInputBuilder()
+    .setCustomId('color_ft')
+    .setStyle(TextInputStyle.Short)
+    .setPlaceholder('ex: #57F287, 57F287, none, or default')
+    .setRequired(false)
+    .setMaxLength(7)
+    .setValue(ftColor || '');
+
+  const drsInput = new TextInputBuilder()
+    .setCustomId('color_drs')
+    .setStyle(TextInputStyle.Short)
+    .setPlaceholder('ex: #ED4245, ED4245, none, or default')
+    .setRequired(false)
+    .setMaxLength(7)
+    .setValue(drsColor || '');
 
   const baLabel = new LabelBuilder()
     .setLabel('BA Color (hex)')
     .setTextInputComponent(baInput);
 
-  const ftInput = new TextInputBuilder()
-    .setCustomId('color_ft')
-    .setStyle(TextInputStyle.Short)
-    .setPlaceholder('ex: #57F287 or 57F287')
-    .setRequired(false)
-    .setMaxLength(7);
-
-  if (ftColor) ftInput.setValue(ftColor);
-
   const ftLabel = new LabelBuilder()
     .setLabel('FT Color (hex)')
     .setTextInputComponent(ftInput);
-
-  const drsInput = new TextInputBuilder()
-    .setCustomId('color_drs')
-    .setStyle(TextInputStyle.Short)
-    .setPlaceholder('ex: #ED4245 or ED4245')
-    .setRequired(false)
-    .setMaxLength(7);
-
-  if (drsColor) drsInput.setValue(drsColor);
 
   const drsLabel = new LabelBuilder()
     .setLabel('DRS Color (hex)')
@@ -619,8 +586,8 @@ async function showColorSettingsModal(interaction, services) {
 
   const modal = new ModalBuilder()
     .setCustomId('config_color_modal')
-    .setTitle('Schedule Color Settings')
-    .addLabelComponents(baLabel, ftLabel, drsLabel);
+    .setTitle('Schedule Accent Colors')
+    .addLabelComponents(baLabel, drsLabel, ftLabel);
 
   await interaction.showModal(modal);
 }
@@ -630,20 +597,66 @@ async function saveColorSettings(interaction, services) {
   const guildId = interaction.guild.id;
 
   try {
+    // Get current config to compare against
+    const currentConfig = await encryptedDb.getServerConfig(guildId) || {};
+    
     const baColor = interaction.fields.getTextInputValue('color_ba').trim();    
     const drsColor = interaction.fields.getTextInputValue('color_drs').trim();
     const ftColor = interaction.fields.getTextInputValue('color_ft').trim();
 
-    const colors = {
-      ba: parseHexColor(baColor),
-      ft: parseHexColor(ftColor),
-      drs: parseHexColor(drsColor)
-    };
-
     const errors = [];
-    if (baColor && colors.ba === null) errors.push('BA color is invalid');
-    if (ftColor && colors.ft === null) errors.push('FT color is invalid');
-    if (drsColor && colors.drs === null) errors.push('DRS color is invalid');
+    const updateData = {};
+    const changedRaidTypes = []; // Track which raids actually changed
+    const displayColors = { ba: baColor, ft: ftColor, drs: drsColor };
+
+    if (baColor) {
+      const parsed = parseHexColor(baColor);
+      const lowerBA = baColor.toLowerCase();
+      if (lowerBA !== 'none' && lowerBA !== 'default' && parsed === null) {
+        errors.push('BA color is invalid');
+      } else {
+        // Only add to updateData if it's different from current value
+        const currentBA = typeof currentConfig.schedule_color_ba === 'string' 
+          ? parseInt(currentConfig.schedule_color_ba, 10) 
+          : currentConfig.schedule_color_ba;
+        if (parsed !== currentBA) {
+          updateData.schedule_color_ba = parsed;
+          changedRaidTypes.push('BA');
+        }
+      }
+    }
+    
+    if (ftColor) {
+      const parsed = parseHexColor(ftColor);
+      const lowerFT = ftColor.toLowerCase();
+      if (lowerFT !== 'none' && lowerFT !== 'default' && parsed === null) {
+        errors.push('FT color is invalid');
+      } else {
+        const currentFT = typeof currentConfig.schedule_color_ft === 'string' 
+          ? parseInt(currentConfig.schedule_color_ft, 10) 
+          : currentConfig.schedule_color_ft;
+        if (parsed !== currentFT) {
+          updateData.schedule_color_ft = parsed;
+          changedRaidTypes.push('FT');
+        }
+      }
+    }
+    
+    if (drsColor) {
+      const parsed = parseHexColor(drsColor);
+      const lowerDRS = drsColor.toLowerCase();
+      if (lowerDRS !== 'none' && lowerDRS !== 'default' && parsed === null) {
+        errors.push('DRS color is invalid');
+      } else {
+        const currentDRS = typeof currentConfig.schedule_color_drs === 'string' 
+          ? parseInt(currentConfig.schedule_color_drs, 10) 
+          : currentConfig.schedule_color_drs;
+        if (parsed !== currentDRS) {
+          updateData.schedule_color_drs = parsed;
+          changedRaidTypes.push('DRS');
+        }
+      }
+    }
 
     if (errors.length > 0) {
       await interaction.reply({
@@ -653,22 +666,42 @@ async function saveColorSettings(interaction, services) {
       return;
     }
 
-    await encryptedDb.updateServerConfig(guildId, {
-      schedule_color_ba: colors.ba,
-      schedule_color_ft: colors.ft,
-      schedule_color_drs: colors.drs
-    });
+    if (Object.keys(updateData).length === 0) {
+      await interaction.reply({
+        content: '❌ No color changes provided.',
+        ephemeral: true
+      });
+      return;
+    }
+
+    await encryptedDb.updateServerConfig(guildId, updateData);
 
     logger.info('Color settings updated', {
       guildId,
       colors: { ba: baColor, ft: ftColor, drs: drsColor }
     });
 
+    const colorMessages = [];
+    const showBA = baColor || baColor === '';
+    const showFT = ftColor || ftColor === '';
+    const showDRS = drsColor || drsColor === '';
+    
+    if (showBA) {
+      colorMessages.push(`**BA:** ${baColor ? baColor : 'cleared'}`);
+    }
+    if (showFT) {
+      colorMessages.push(`**FT:** ${ftColor ? ftColor : 'cleared'}`);
+    }
+    if (showDRS) {
+      colorMessages.push(`**DRS:** ${drsColor ? drsColor : 'cleared'}`);
+    }
+
     let successText = '✅ **Color settings saved!**\n\n';
-    if (baColor) successText += `**BA:** ${baColor}\n`;
-    if (ftColor) successText += `**FT:** ${ftColor}\n`;
-    if (drsColor) successText += `**DRS:** ${drsColor}\n`;
-    if (!baColor && !ftColor && !drsColor) successText += 'All colors cleared (using default).\n';
+    if (colorMessages.length > 0) {
+      successText += colorMessages.join('\n') + '\n';
+    } else {
+      successText += 'All colors cleared (using default).\n';
+    }
     successText += '\nSchedules are updating...';
 
     await interaction.reply({
@@ -677,12 +710,22 @@ async function saveColorSettings(interaction, services) {
     });
 
     try {
-      await updateManager.forceUpdate(guildId);
-      
-      await interaction.editReply({
-        content: '✅ **Completed!** Schedules updated with new colors.'
-      }).catch(() => {
-      });
+      // Only update raid types that actually changed
+      if (changedRaidTypes.length > 0) {
+        for (const raidType of changedRaidTypes) {
+          await updateManager.regenerateSchedule(guildId, raidType);
+        }
+        
+        await interaction.editReply({
+          content: '✅ **Completed!** Schedules updated with new colors.'
+        }).catch(() => {
+        });
+      } else {
+        await interaction.editReply({
+          content: '✅ **No changes detected.** Colors remain the same.'
+        }).catch(() => {
+        });
+      }
       
       setTimeout(async () => {
         await interaction.deleteReply().catch(() => {
@@ -717,6 +760,16 @@ async function saveColorSettings(interaction, services) {
 
 function parseHexColor(hexColor) {
   if (!hexColor) return null;
+  
+  const lowerValue = hexColor.toLowerCase().trim();
+  
+  if (lowerValue === 'none') {
+    return null;
+  }
+  
+  if (lowerValue === 'default') {
+    return -1;
+  }
   
   let hex = hexColor.startsWith('#') ? hexColor.slice(1) : hexColor;
   

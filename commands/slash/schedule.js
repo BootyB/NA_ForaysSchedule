@@ -1,6 +1,7 @@
 const { SlashCommandBuilder, PermissionFlagsBits, MessageFlags, ContainerBuilder, TextDisplayBuilder, ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const logger = require('../../utils/logger');
 const encryptedDb = require('../../config/encryptedDatabase');
+const { buildConfigMenu } = require('../../utils/configMenuBuilder');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -93,84 +94,7 @@ async function showSetupWizard(interaction, services) {
 }
 
 async function showConfigurationMenu(interaction, services, config) {
-  const container = new ContainerBuilder();
-
-  let statusText = `## ⚙️ Server Configuration\n\n`;
-  
-  const configuredRaids = [];
-  for (const raidType of ['BA', 'DRS', 'FT']) {
-    const channelKey = `schedule_channel_${raidType.toLowerCase()}`;
-    const hostsKey = `enabled_hosts_${raidType.toLowerCase()}`;
-    
-    if (config[channelKey] && config[hostsKey]) {
-      configuredRaids.push(raidType);
-      const channel = interaction.guild.channels.cache.get(config[channelKey]);
-      const hosts = config[hostsKey]; // Already decrypted and parsed by encryptedDb
-      
-      statusText += `**${raidType}:**\n`;
-      statusText += `Channel: ${channel ? channel.toString() : 'Not found'}\n`;
-      statusText += `Servers: ${hosts.join(', ')}\n\n`;
-    } else {
-      statusText += `**${raidType}:** ❌ Not configured\n\n`;
-    }
-  }
-
-  statusText += `**Auto-Update:** ${config.auto_update ? '✅ Enabled' : '❌ Disabled'}\n\n`;
-  statusText += `Select a raid type below to add or modify its settings.`;
-
-  container.addTextDisplayComponents(
-    new TextDisplayBuilder().setContent(statusText)
-  );
-
-  const allRaidTypes = ['BA', 'DRS', 'FT'];
-  const raidEmojiMap = {
-    'BA': { id: '1460936708538499202', name: 'ozma' },
-    'FT': { id: '1460937119559192647', name: 'demoncube' },
-    'DRS': { id: '1460943074724155599', name: 'frame_000_delay0' }
-  };
-  const raidSelect = new StringSelectMenuBuilder()
-    .setCustomId('config_select_raid')
-    .setPlaceholder('Select raid type to configure')
-    .addOptions(
-      allRaidTypes.map(raidType => ({
-        label: `${raidType}${configuredRaids.includes(raidType) ? ' ✓' : ''}`,
-        description: configuredRaids.includes(raidType) ? 'Currently configured' : 'Not yet configured',
-        value: raidType,
-        emoji: raidEmojiMap[raidType]
-      }))
-    );
-
-  container.addActionRowComponents(
-    new ActionRowBuilder().addComponents(raidSelect)
-  );
-
-  const toggleButton = new ButtonBuilder()
-    .setCustomId('config_toggle_auto_update')
-    .setLabel(config.auto_update ? 'Disable Auto-Update' : 'Enable Auto-Update')
-    .setStyle(config.auto_update ? ButtonStyle.Danger : ButtonStyle.Success);
-
-  const refreshButton = new ButtonBuilder()
-    .setCustomId('config_refresh_schedules')
-    .setLabel('🔄 Refresh Now')
-    .setStyle(ButtonStyle.Primary);
-
-  container.addActionRowComponents(
-    new ActionRowBuilder().addComponents(toggleButton, refreshButton)
-  );
-
-  const colorButton = new ButtonBuilder()
-    .setCustomId('config_color_settings')
-    .setLabel('🎨 Color Settings')
-    .setStyle(ButtonStyle.Secondary);
-
-  const resetButton = new ButtonBuilder()
-    .setCustomId('config_reset_confirmation')
-    .setLabel('🗑️ Reset Config')
-    .setStyle(ButtonStyle.Danger);
-
-  container.addActionRowComponents(
-    new ActionRowBuilder().addComponents(colorButton, resetButton)
-  );
+  const container = buildConfigMenu(config, interaction.guild);
 
   await interaction.reply({
     components: [container],

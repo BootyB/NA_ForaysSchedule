@@ -10,6 +10,11 @@ async function handleSetupInteraction(interaction, services) {
 
   if (customId === 'setup_select_raids') {
     await handleRaidTypeSelection(interaction, services);
+  } else if (customId.startsWith('setup_retry_channel_')) {
+    const raidType = customId.split('_').pop().toUpperCase();
+    const state = setupState.get(interaction.user.id) || {};
+    const allRaidTypes = state.selectedRaidTypes || [raidType];
+    await showChannelSelection(interaction, services, raidType, allRaidTypes);
   } else if (customId.startsWith('setup_select_channel_')) {
     const raidType = customId.split('_').pop().toUpperCase();
     await handleChannelSelection(interaction, services, raidType);
@@ -51,7 +56,15 @@ async function showChannelSelection(interaction, services, currentRaidType, allR
 
   const headerText = 
     `## Setup: Select Channel for ${currentRaidType}\n\n` +
-    `Choose the channel where ${currentRaidType} schedules will be posted.`;
+    `Choose the channel where ${currentRaidType} schedules will be posted.\n\n` +
+    `**⚠️ Before Selecting:**\n` +
+    `Make sure the bot has these permissions in your chosen channel(s):\n` +
+    `• View Channel\n` +
+    `• Send Messages\n` +
+    `• Embed Links\n` +
+    `• Attach Files\n` +
+    `• Read Message History\n\n` +
+    `**Quick Setup:** Right-click your channel → Edit Channel → Permissions → Add the **NA Forays Schedule** role → Enable the permissions above.`;
 
   container.addTextDisplayComponents(
     new TextDisplayBuilder().setContent(headerText)
@@ -74,6 +87,87 @@ async function showChannelSelection(interaction, services, currentRaidType, allR
 
 async function handleChannelSelection(interaction, services, raidType) {
   const channelId = interaction.values[0];
+  const channel = interaction.guild.channels.cache.get(channelId);
+  
+  if (!channel) {
+    await interaction.update({
+      content: '❌ Channel not found. Please try again.',
+      components: [],
+      flags: 1 << 15
+    });
+    return;
+  }
+  
+  // Check bot permissions in the selected channel
+  const botMember = await interaction.guild.members.fetchMe();
+  const permissions = channel.permissionsFor(botMember);
+  
+  const requiredPermissions = [
+    { name: 'View Channel', flag: 'ViewChannel' },
+    { name: 'Send Messages', flag: 'SendMessages' },
+    { name: 'Embed Links', flag: 'EmbedLinks' },
+    { name: 'Attach Files', flag: 'AttachFiles' },
+    { name: 'Read Message History', flag: 'ReadMessageHistory' }
+  ];
+  
+  const missingPermissions = [];
+  const grantedPermissions = [];
+  
+  for (const perm of requiredPermissions) {
+    if (permissions.has(perm.flag)) {
+      grantedPermissions.push(perm.name);
+    } else {
+      missingPermissions.push(perm.name);
+    }
+  }
+  
+  if (missingPermissions.length > 0) {
+    const errorContainer = new ContainerBuilder();
+    
+    let errorText = `❌ **Missing Permissions in ${channel.toString()}**\n\n`;
+    
+    if (grantedPermissions.length > 0) {
+      errorText += `✅ **Already Granted:**\n${grantedPermissions.map(p => `• ${p}`).join('\n')}\n\n`;
+    }
+    
+    errorText += `❌ **Missing:**\n${missingPermissions.map(p => `• ${p}`).join('\n')}\n\n`;
+    
+    errorText += 
+      `**How to Fix:**\n\n` +
+      `**Option 1: Channel-Specific (More Secure)**\n` +
+      `1. Right-click ${channel.toString()} → **Edit Channel**\n` +
+      `2. Go to **Permissions** tab\n` +
+      `3. Click **+** to add a role/member\n` +
+      `4. Select **NA Forays Schedule** (the bot's role)\n` +
+      `5. Enable: ${missingPermissions.join(', ')}\n` +
+      `6. Click **Save Changes**\n\n` +
+      `**Option 2: Server-Wide (Easier, Less Secure)**\n` +
+      `1. Go to **Server Settings** → **Roles**\n` +
+      `2. Find **NA Forays Schedule** role or bot\n` +
+      `3. Enable: ${missingPermissions.join(', ')}\n` +
+      `4. Click **Save Changes**\n\n` +
+      `*Note: Option 1 is recommended as it limits bot permissions to only necessary channels.*`;
+    
+    errorContainer.addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(errorText)
+    );
+    
+    const retryButton = new ButtonBuilder()
+      .setCustomId(`setup_retry_channel_${raidType.toLowerCase()}`)
+      .setLabel('Try Again')
+      .setStyle(ButtonStyle.Primary);
+    
+    errorContainer.addActionRowComponents(
+      new ActionRowBuilder().addComponents(retryButton)
+    );
+    
+    await interaction.update({
+      components: [errorContainer],
+      flags: 1 << 15
+    });
+    return;
+  }
+  
   const state = setupState.get(interaction.user.id) || {};
   
   if (!state.channels) state.channels = {};
@@ -123,6 +217,20 @@ async function showHostSelection(interaction, services, raidType) {
 async function handleHostSelection(interaction, services, raidType) {
   const selectedHosts = interaction.values;
   const state = setupState.get(interaction.user.id) || {};
+  
+  // Validate state
+  if (!state.selectedRaidTypes || !Array.isArray(state.selectedRaidTypes)) {
+    const errorContainer = new ContainerBuilder();
+    errorContainer.addTextDisplayComponents(
+      new TextDisplayBuilder().setContent('❌ Setup session expired or invalid. Please run `/na-schedule` again to restart setup.')
+    );
+    await interaction.update({
+      components: [errorContainer],
+      flags: 1 << 15
+    });
+    setupState.delete(interaction.user.id);
+    return;
+  }
   
   if (!state.hosts) state.hosts = {};
   state.hosts[raidType] = selectedHosts;
@@ -205,7 +313,11 @@ async function handleSetupConfirmation(interaction, services) {
     const configData = {
       guild_name: interaction.guild.name,
       setup_complete: 1,
-      auto_update: 1
+      auto_update: 1,
+      // Set default colors (-1 = use default from constants.js)
+      schedule_color_ba: -1,
+      schedule_color_ft: -1,
+      schedule_color_drs: -1
     };
 
     for (const raidType of state.selectedRaidTypes) {

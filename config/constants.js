@@ -3,19 +3,19 @@ const RAID_TYPES = {
   BA: {
     name: 'Baldesion Arsenal',
     emoji: '🏛️',
-    color: 0x2add77,
+    color: 0xED4245,
     runTypes: ['Standard', 'Fresh', 'Learning', 'Reclear', 'Meme', 'Normal', 'Frag']
   },
   FT: {
     name: 'Forked Tower',
     emoji: '🗼',
-    color: 0xfd0061,
+    color: 0xED4245,
     runTypes: ['Fresh/AnyProg', 'Dead Stars', 'Bridges', 'Marble Dragon', 'Magitaur', 'Clear', 'Reclear']
   },
   DRS: {
     name: 'Delubrum Reginae Savage',
     emoji: '⚔️',
-    color: 0x8B0000,
+    color: 0xED4245,
     runTypes: ['Fresh Clear', 'Trinity Seeker', 'The Queen', 'Reclear']
   }
 };

@@ -10,11 +10,17 @@ class ScheduleContainerBuilder {
     this.client = client;
   }
 
-  buildOverviewContainer(raidType, customColor = null) {
+  buildOverviewContainer(raidType, customColor = undefined) {
     const container = new ContainerBuilder();
     const raidInfo = RAID_TYPES[raidType];
     
-    container.setAccentColor(customColor || raidInfo.color);
+    if (customColor === undefined) {
+      container.setAccentColor(raidInfo.color);
+    } else if (customColor === null) {
+      container.setAccentColor(null);
+    } else {
+      container.setAccentColor(customColor);
+    }
 
     const calendarLinks = {
       BA: {
@@ -45,7 +51,6 @@ class ScheduleContainerBuilder {
 
     const links = calendarLinks[raidType];
 
-    // Banner images - use attachment:// for local files
     const bannerImages = {
       BA: 'attachment://ba_opening.avif',
       DRS: 'attachment://drs_opening.avif',
@@ -134,7 +139,7 @@ class ScheduleContainerBuilder {
     return container;
   }
 
-  async buildScheduleContainers(groupedRuns, raidType, customColor = null) {
+  async buildScheduleContainers(groupedRuns, raidType, customColor = undefined) {
     const containers = [];
     const raidInfo = RAID_TYPES[raidType];
 
@@ -160,11 +165,17 @@ class ScheduleContainerBuilder {
     return containers;
   }
 
-  async buildServerContainer(serverName, runs, raidType, isFirst = false, customColor = null) {
+  async buildServerContainer(serverName, runs, raidType, isFirst = false, customColor = undefined) {
     const container = new ContainerBuilder();
     const raidInfo = RAID_TYPES[raidType];
     
-    container.setAccentColor(customColor || raidInfo.color);
+    if (customColor === undefined) {
+      container.setAccentColor(raidInfo.color);
+    } else if (customColor === null) {
+      container.setAccentColor(null);
+    } else {
+      container.setAccentColor(customColor);
+    }
 
     const serverIcon = getServerIcon(serverName);
     let headerContent = `## ${getChannelLink(serverName, raidType)}\n`;
@@ -283,11 +294,17 @@ class ScheduleContainerBuilder {
     return text;
   }
 
-  buildEmptyContainer(raidType, customColor = null) {
+  buildEmptyContainer(raidType, customColor = undefined) {
     const container = new ContainerBuilder();
     const raidInfo = RAID_TYPES[raidType];
     
-    container.setAccentColor(customColor || raidInfo.color);
+    if (customColor === undefined) {
+      container.setAccentColor(raidInfo.color);
+    } else if (customColor === null) {
+      container.setAccentColor(null);
+    } else {
+      container.setAccentColor(customColor);
+    }
     
     const emptyText = 
       `# ${raidInfo.emoji} ${raidInfo.name} Runs\n\n` +
