@@ -18,6 +18,7 @@ jobs:
           key: ${{ secrets.PI_SSH_KEY }}
           port: ${{ secrets.PI_PORT }}
           script: |
+            export PATH="$HOME/.config/versions/node/v18.17.1/bin:$PATH"
             cd ~/NA_ForaysSchedule_prod
             git fetch origin main
             git reset --hard origin/main
