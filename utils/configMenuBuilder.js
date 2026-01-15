@@ -1,9 +1,17 @@
-const { ContainerBuilder, TextDisplayBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder } = require('discord.js');
+const { ContainerBuilder, TextDisplayBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder, SeparatorBuilder, SectionBuilder } = require('discord.js');
 
 function buildConfigMenu(config, guild) {
   const container = new ContainerBuilder();
 
-  let statusText = `## ⚙️ Server Configuration\n\n`;
+  container.addTextDisplayComponents(
+    new TextDisplayBuilder().setContent(`## ⚙️ Server Configuration`)
+  );
+
+  container.addSeparatorComponents(
+    new SeparatorBuilder()
+  );
+
+  let statusText = ``;
   
   const configuredRaids = [];
   for (const raidType of ['BA', 'DRS', 'FT']) {
@@ -23,26 +31,6 @@ function buildConfigMenu(config, guild) {
     }
   }
 
-  statusText += `**Auto-Update:** ${config.auto_update ? '✅ Enabled' : '❌ Disabled'}\n\n`;
-  
-  const formatColor = (colorValue) => {
-    if (colorValue === null) return 'None';
-    if (colorValue === undefined) return 'Default (Red)';
-    
-    const numValue = typeof colorValue === 'string' ? parseInt(colorValue, 10) : colorValue;
-    
-    if (numValue === -1) return 'Default (Red)';
-    
-    if (typeof numValue === 'number' && !isNaN(numValue) && numValue >= 0) {
-      return '#' + numValue.toString(16).padStart(6, '0').toUpperCase();
-    }
-    
-    return 'Unknown';
-  };
-  
-  statusText += `**Colors:** BA: ${formatColor(config.schedule_color_ba)} | FT: ${formatColor(config.schedule_color_ft)} | DRS: ${formatColor(config.schedule_color_drs)}\n\n`;
-  statusText += `Select a raid type below to add or modify its settings.`;
-
   container.addTextDisplayComponents(
     new TextDisplayBuilder().setContent(statusText)
   );
@@ -51,7 +39,7 @@ function buildConfigMenu(config, guild) {
   const raidEmojiMap = {
     'BA': { id: '1460936708538499202', name: 'ozma' },
     'FT': { id: '1460937119559192647', name: 'demoncube' },
-    'DRS': { id: '1460943074724155599', name: 'frame_000_delay0' }
+    'DRS': { id: '1460943074724155599', name: 'queen' }
   };
   
   const raidSelect = new StringSelectMenuBuilder()
@@ -70,20 +58,61 @@ function buildConfigMenu(config, guild) {
     new ActionRowBuilder().addComponents(raidSelect)
   );
 
-  const toggleButton = new ButtonBuilder()
-    .setCustomId('config_toggle_auto_update')
-    .setLabel(config.auto_update ? 'Disable Auto-Update' : 'Enable Auto-Update')
-    .setStyle(config.auto_update ? ButtonStyle.Danger : ButtonStyle.Success);
+  container.addSeparatorComponents(
+    new SeparatorBuilder()
+  );
+
+  const autoUpdateSection = new SectionBuilder()
+    .addTextDisplayComponents(
+      (textDisplay) =>
+        textDisplay.setContent(`**Auto-Update:** ${config.auto_update ? '✅ Enabled' : '❌ Disabled'}`)
+    )
+    .setButtonAccessory((button) =>
+      button
+        .setCustomId('config_toggle_auto_update')
+        .setLabel(config.auto_update ? 'Disable' : 'Enable')
+        .setStyle(config.auto_update ? ButtonStyle.Danger : ButtonStyle.Success)
+    );
+
+  container.addSectionComponents(autoUpdateSection);
+
+  const formatColor = (colorValue) => {
+    if (colorValue === null) return 'None';
+    if (colorValue === undefined) return 'Default (Red)';
+    
+    const numValue = typeof colorValue === 'string' ? parseInt(colorValue, 10) : colorValue;
+    
+    if (numValue === -1) return 'Default (Red)';
+    
+    if (typeof numValue === 'number' && !isNaN(numValue) && numValue >= 0) {
+      return '#' + numValue.toString(16).padStart(6, '0').toUpperCase();
+    }
+    
+    return 'Unknown';
+  };
+
+  const colorSection = new SectionBuilder()
+    .addTextDisplayComponents(
+      (textDisplay) =>
+        textDisplay.setContent(`**Colors:** BA: ${formatColor(config.schedule_color_ba)} | FT: ${formatColor(config.schedule_color_ft)} | DRS: ${formatColor(config.schedule_color_drs)}`)
+    )
+    .setButtonAccessory((button) =>
+      button
+        .setCustomId('config_color_settings')
+        .setLabel('🎨 Edit')
+        .setStyle(ButtonStyle.Secondary)
+    );
+
+  container.addSectionComponents(colorSection);
+
+  container.addSeparatorComponents(
+    new SeparatorBuilder()
+  );
 
   const refreshButton = new ButtonBuilder()
     .setCustomId('config_refresh_schedules')
-    .setLabel('🔄 Refresh Now')
+    .setLabel('🔄 Refresh All')
     .setStyle(ButtonStyle.Primary);
-
-  const colorButton = new ButtonBuilder()
-    .setCustomId('config_color_settings')
-    .setLabel('🎨 Color Settings')
-    .setStyle(ButtonStyle.Secondary);
 
   const resetButton = new ButtonBuilder()
     .setCustomId('config_reset_confirmation')
@@ -91,11 +120,7 @@ function buildConfigMenu(config, guild) {
     .setStyle(ButtonStyle.Danger);
 
   container.addActionRowComponents(
-    new ActionRowBuilder().addComponents(toggleButton, refreshButton)
-  );
-
-  container.addActionRowComponents(
-    new ActionRowBuilder().addComponents(colorButton, resetButton)
+    new ActionRowBuilder().addComponents(refreshButton, resetButton)
   );
 
   return container;

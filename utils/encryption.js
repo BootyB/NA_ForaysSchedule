@@ -52,8 +52,13 @@ function encryptJSON(obj) {
 
 function decryptJSON(encryptedJSON) {
   if (!encryptedJSON) return null;
-  const decrypted = decrypt(encryptedJSON);
-  return JSON.parse(decrypted);
+  try {
+    const decrypted = decrypt(encryptedJSON);
+    return JSON.parse(decrypted);
+  } catch (error) {
+    console.error('Error decrypting JSON:', error.message, 'Data:', encryptedJSON?.substring(0, 50));
+    return null;
+  }
 }
 
 module.exports = {

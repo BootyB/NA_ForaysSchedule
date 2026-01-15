@@ -1,6 +1,6 @@
 const { ContainerBuilder, TextDisplayBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, LabelBuilder } = require('discord.js');
 const logger = require('../utils/logger');
-const { getAllHostServers } = require('../config/hostServers');
+const { getAllHostServers, getServerEmoji } = require('../config/hostServers');
 const { areValidHostServers } = require('../utils/validators');
 const encryptedDb = require('../config/encryptedDatabase');
 const { buildConfigMenu } = require('../utils/configMenuBuilder');
@@ -158,11 +158,18 @@ async function showHostChangeMenu(interaction, services, raidType) {
     .setMinValues(1)
     .setMaxValues(allHosts.length)
     .addOptions(
-      allHosts.map(server => ({
-        label: server,
-        value: server,
-        default: currentHosts.includes(server)
-      }))
+      allHosts.map(server => {
+        const option = {
+          label: server,
+          value: server,
+          default: currentHosts.includes(server)
+        };
+        const emoji = getServerEmoji(server);
+        if (emoji) {
+          option.emoji = emoji;
+        }
+        return option;
+      })
     );
 
   container.addActionRowComponents(
@@ -263,14 +270,12 @@ async function toggleAutoUpdate(interaction, services) {
 
     await encryptedDb.updateServerConfig(guildId, { auto_update: newValue });
 
-    const successContainer = new ContainerBuilder();
-    successContainer.addTextDisplayComponents(
-      new TextDisplayBuilder().setContent(`✅ Auto-update ${newValue ? 'enabled' : 'disabled'}!`)
-    );
+    const updatedConfig = { ...config, auto_update: newValue };
+    const container = buildConfigMenu(updatedConfig, interaction.guild);
 
     await interaction.update({
-      components: [successContainer],
-      flags: 64 | 32768
+      components: [container],
+      flags: 1 << 15
     });
 
   } catch (error) {
@@ -336,37 +341,274 @@ async function regenerateRaidSchedule(interaction, services, raidType) {
   const guildId = interaction.guild.id;
   
   try {
-    await interaction.deferUpdate();
-    
-    const result = await services.updateManager.regenerateSchedule(guildId, raidType);
-    
-    if (result.success) {
-      const successContainer = new ContainerBuilder();
-      successContainer.addTextDisplayComponents(
-        new TextDisplayBuilder().setContent(`✅ ${raidType} schedule regenerated successfully!`)
-      );
-      
-      await interaction.followUp({
-        components: [successContainer],
-        flags: 64 | 32768,
-        ephemeral: true
-      });
-
-      logger.info('Raid schedule regenerated', {
-        guildId,
-        raidType,
-        user: interaction.user.tag
-      });
-    } else {
+    const config = await encryptedDb.getServerConfig(guildId);
+    if (!config) {
       const errorContainer = new ContainerBuilder();
       errorContainer.addTextDisplayComponents(
-        new TextDisplayBuilder().setContent(`❌ Error regenerating ${raidType} schedule: ${result.error}`)
+        new TextDisplayBuilder().setContent('❌ Server not configured.')
       );
-      await interaction.followUp({
+      await interaction.update({
         components: [errorContainer],
-        flags: 64 | 32768,
-        ephemeral: true
+        flags: 64
       });
+      return;
+    }
+
+    const channelKey = `schedule_channel_${raidType.toLowerCase()}`;
+    const scheduleChannelId = config[channelKey];
+    const isSameChannel = interaction.channelId === scheduleChannelId;
+
+    if (isSameChannel) {
+      await interaction.deferUpdate();
+      await interaction.deleteReply().catch(() => {});
+      
+      const result = await services.updateManager.regenerateSchedule(guildId, raidType);
+      
+      if (result.success) {
+        const successContainer = new ContainerBuilder();
+        successContainer.addTextDisplayComponents(
+          new TextDisplayBuilder().setContent(`✅ ${raidType} schedule regenerated successfully! Returning to configuration...`)
+        );
+        
+        const successMessage = await interaction.followUp({
+          components: [successContainer],
+          flags: 64 | 32768
+        });
+
+        logger.info('Raid schedule regenerated', {
+          guildId,
+          raidType,
+          user: interaction.user.tag
+        });
+
+        setTimeout(async () => {
+          try {
+            const config = await encryptedDb.getServerConfig(guildId);
+            
+            if (!config) {
+              return;
+            }
+
+            const hostsKey = `enabled_hosts_${raidType.toLowerCase()}`;
+            const enabledHosts = config[hostsKey] || [];
+
+            const container = new ContainerBuilder();
+
+            const configText = 
+              `## ${raidType} Configuration\n\n` +
+              `**Currently Enabled Servers:**\n` +
+              (enabledHosts.length > 0 ? enabledHosts.map(h => `● ${h}`).join('\n') : 'None') +
+              `\n\nUse the buttons below to modify settings.`;
+
+            container.addTextDisplayComponents(
+              new TextDisplayBuilder().setContent(configText)
+            );
+
+            const changeHostsButton = new ButtonBuilder()
+              .setCustomId(`config_change_hosts_${raidType.toLowerCase()}`)
+              .setLabel('Change Host Servers')
+              .setStyle(ButtonStyle.Primary);
+
+            const regenerateButton = new ButtonBuilder()
+              .setCustomId(`config_regenerate_raid_${raidType.toLowerCase()}`)
+              .setLabel('Regenerate Schedule')
+              .setStyle(ButtonStyle.Success);
+
+            const backButton = new ButtonBuilder()
+              .setCustomId('config_back')
+              .setLabel('Back to Menu')
+              .setStyle(ButtonStyle.Secondary);
+
+            container.addActionRowComponents(
+              new ActionRowBuilder().addComponents(changeHostsButton, regenerateButton)
+            );
+            
+            container.addActionRowComponents(
+              new ActionRowBuilder().addComponents(backButton)
+            );
+
+            await interaction.webhook.editMessage(successMessage.id, {
+              components: [container]
+            });
+          } catch (error) {
+            logger.error('Error updating success message to config', {
+              error: error.message,
+              guildId,
+              raidType
+            });
+          }
+        }, 3000);
+      } else {
+        const errorContainer = new ContainerBuilder();
+        errorContainer.addTextDisplayComponents(
+          new TextDisplayBuilder().setContent(`❌ Error regenerating ${raidType} schedule: ${result.error}`)
+        );
+        await interaction.followUp({
+          components: [errorContainer],
+          flags: 64 | 32768
+        });
+      }
+    } else {
+      await interaction.deferUpdate();
+      
+      const hostsKey = `enabled_hosts_${raidType.toLowerCase()}`;
+      const enabledHosts = config[hostsKey] || [];
+
+      const container = new ContainerBuilder();
+
+      const configText = 
+        `## ${raidType} Configuration\n\n` +
+        `**Currently Enabled Servers:**\n` +
+        (enabledHosts.length > 0 ? enabledHosts.map(h => `● ${h}`).join('\n') : 'None') +
+        `\n\nUse the buttons below to modify settings.\n\n` +
+        `*Building...*`;
+
+      container.addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(configText)
+      );
+
+      const changeHostsButton = new ButtonBuilder()
+        .setCustomId(`config_change_hosts_${raidType.toLowerCase()}`)
+        .setLabel('Change Host Servers')
+        .setStyle(ButtonStyle.Primary);
+
+      const regenerateButton = new ButtonBuilder()
+        .setCustomId(`config_regenerate_raid_${raidType.toLowerCase()}`)
+        .setLabel('Regenerate Schedule')
+        .setStyle(ButtonStyle.Success);
+
+      const backButton = new ButtonBuilder()
+        .setCustomId('config_back')
+        .setLabel('Back to Menu')
+        .setStyle(ButtonStyle.Secondary);
+
+      container.addActionRowComponents(
+        new ActionRowBuilder().addComponents(changeHostsButton, regenerateButton)
+      );
+      
+      container.addActionRowComponents(
+        new ActionRowBuilder().addComponents(backButton)
+      );
+
+      await interaction.editReply({
+        components: [container]
+      });
+
+      const result = await services.updateManager.regenerateSchedule(guildId, raidType);
+
+      if (result.success) {
+        const successText = 
+          `## ${raidType} Configuration\n\n` +
+          `**Currently Enabled Servers:**\n` +
+          (enabledHosts.length > 0 ? enabledHosts.map(h => `● ${h}`).join('\n') : 'None') +
+          `\n\nUse the buttons below to modify settings.\n\n` +
+          `*✅ Success*`;
+
+        const successContainer = new ContainerBuilder();
+        successContainer.addTextDisplayComponents(
+          new TextDisplayBuilder().setContent(successText)
+        );
+        successContainer.addActionRowComponents(
+          new ActionRowBuilder().addComponents(changeHostsButton, regenerateButton)
+        );
+        successContainer.addActionRowComponents(
+          new ActionRowBuilder().addComponents(backButton)
+        );
+
+        await interaction.editReply({
+          components: [successContainer]
+        });
+
+        logger.info('Raid schedule regenerated', {
+          guildId,
+          raidType,
+          user: interaction.user.tag
+        });
+
+        setTimeout(async () => {
+          try {
+            const finalText = 
+              `## ${raidType} Configuration\n\n` +
+              `**Currently Enabled Servers:**\n` +
+              (enabledHosts.length > 0 ? enabledHosts.map(h => `● ${h}`).join('\n') : 'None') +
+              `\n\nUse the buttons below to modify settings.`;
+
+            const finalContainer = new ContainerBuilder();
+            finalContainer.addTextDisplayComponents(
+              new TextDisplayBuilder().setContent(finalText)
+            );
+            finalContainer.addActionRowComponents(
+              new ActionRowBuilder().addComponents(changeHostsButton, regenerateButton)
+            );
+            finalContainer.addActionRowComponents(
+              new ActionRowBuilder().addComponents(backButton)
+            );
+
+            await interaction.editReply({
+              components: [finalContainer]
+            });
+          } catch (error) {
+            logger.error('Error removing status line', {
+              error: error.message,
+              guildId,
+              raidType
+            });
+          }
+        }, 3000);
+      } else {
+        const errorText = 
+          `## ${raidType} Configuration\n\n` +
+          `**Currently Enabled Servers:**\n` +
+          (enabledHosts.length > 0 ? enabledHosts.map(h => `● ${h}`).join('\n') : 'None') +
+          `\n\nUse the buttons below to modify settings.\n\n` +
+          `*❌ Error: ${result.error}*`;
+
+        const errorContainer = new ContainerBuilder();
+        errorContainer.addTextDisplayComponents(
+          new TextDisplayBuilder().setContent(errorText)
+        );
+        errorContainer.addActionRowComponents(
+          new ActionRowBuilder().addComponents(changeHostsButton, regenerateButton)
+        );
+        errorContainer.addActionRowComponents(
+          new ActionRowBuilder().addComponents(backButton)
+        );
+
+        await interaction.editReply({
+          components: [errorContainer]
+        });
+
+        setTimeout(async () => {
+          try {
+            const finalText = 
+              `## ${raidType} Configuration\n\n` +
+              `**Currently Enabled Servers:**\n` +
+              (enabledHosts.length > 0 ? enabledHosts.map(h => `● ${h}`).join('\n') : 'None') +
+              `\n\nUse the buttons below to modify settings.`;
+
+            const finalContainer = new ContainerBuilder();
+            finalContainer.addTextDisplayComponents(
+              new TextDisplayBuilder().setContent(finalText)
+            );
+            finalContainer.addActionRowComponents(
+              new ActionRowBuilder().addComponents(changeHostsButton, regenerateButton)
+            );
+            finalContainer.addActionRowComponents(
+              new ActionRowBuilder().addComponents(backButton)
+            );
+
+            await interaction.editReply({
+              components: [finalContainer]
+            });
+          } catch (error) {
+            logger.error('Error removing error line', {
+              error: error.message,
+              guildId,
+              raidType
+            });
+          }
+        }, 5000);
+      }
     }
 
   } catch (error) {
@@ -376,15 +618,26 @@ async function regenerateRaidSchedule(interaction, services, raidType) {
       raidType
     });
 
-    const errorContainer = new ContainerBuilder();
-    errorContainer.addTextDisplayComponents(
-      new TextDisplayBuilder().setContent(`❌ Error regenerating ${raidType} schedule. Please try again.`)
-    );
-    await interaction.followUp({
-      components: [errorContainer],
-      flags: 64 | 32768,
-      ephemeral: true
-    });
+    try {
+      const errorContainer = new ContainerBuilder();
+      errorContainer.addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(`❌ Error regenerating ${raidType} schedule. Please try again.`)
+      );
+      
+      if (interaction.deferred || interaction.replied) {
+        await interaction.followUp({
+          components: [errorContainer],
+          flags: 64 | 32768
+        }).catch(() => {});
+      } else {
+        await interaction.reply({
+          components: [errorContainer],
+          flags: 64 | 32768
+        }).catch(() => {});
+      }
+    } catch (err) {
+      logger.error('Failed to send error message', { error: err.message });
+    }
   }
 }
 
@@ -428,13 +681,11 @@ async function resetConfiguration(interaction, services) {
   const guildId = interaction.guild.id;
 
   try {
-    // Defer the update immediately to prevent interaction timeout
     await interaction.deferUpdate();
     
     const config = await encryptedDb.getServerConfig(guildId);
 
     if (config) {
-      // Delete all schedule messages and overview containers
       for (const raidType of ['BA', 'DRS', 'FT']) {
         const channelKey = `schedule_channel_${raidType.toLowerCase()}`;
         const channelId = config[channelKey];
@@ -443,7 +694,6 @@ async function resetConfiguration(interaction, services) {
           try {
             const channel = await interaction.guild.channels.fetch(channelId);
             
-            // Delete overview message
             const overviewKey = `schedule_overview_${raidType.toLowerCase()}`;
             const overviewId = config[overviewKey];
             if (overviewId) {
@@ -456,7 +706,6 @@ async function resetConfiguration(interaction, services) {
               }
             }
             
-            // Delete schedule messages
             const messageKey = `schedule_message_${raidType.toLowerCase()}`;
             const messageIds = config[messageKey];
             if (messageIds) {
@@ -597,7 +846,6 @@ async function saveColorSettings(interaction, services) {
   const guildId = interaction.guild.id;
 
   try {
-    // Get current config to compare against
     const currentConfig = await encryptedDb.getServerConfig(guildId) || {};
     
     const baColor = interaction.fields.getTextInputValue('color_ba').trim();    
@@ -606,7 +854,7 @@ async function saveColorSettings(interaction, services) {
 
     const errors = [];
     const updateData = {};
-    const changedRaidTypes = []; // Track which raids actually changed
+    const changedRaidTypes = [];
     const displayColors = { ba: baColor, ft: ftColor, drs: drsColor };
 
     if (baColor) {
@@ -615,7 +863,6 @@ async function saveColorSettings(interaction, services) {
       if (lowerBA !== 'none' && lowerBA !== 'default' && parsed === null) {
         errors.push('BA color is invalid');
       } else {
-        // Only add to updateData if it's different from current value
         const currentBA = typeof currentConfig.schedule_color_ba === 'string' 
           ? parseInt(currentConfig.schedule_color_ba, 10) 
           : currentConfig.schedule_color_ba;
@@ -710,7 +957,6 @@ async function saveColorSettings(interaction, services) {
     });
 
     try {
-      // Only update raid types that actually changed
       if (changedRaidTypes.length > 0) {
         for (const raidType of changedRaidTypes) {
           await updateManager.regenerateSchedule(guildId, raidType);

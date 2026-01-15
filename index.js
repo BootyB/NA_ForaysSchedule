@@ -38,7 +38,7 @@ const client = new Client({
     status: 'invisible'
   },
   rest: {
-    timeout: 15000, // 15 second timeout for REST requests
+    timeout: 15000,
     retries: 3
   }
 });
@@ -77,7 +77,6 @@ for (const file of eventFiles) {
   const filePath = path.join(eventsPath, file);
   const event = require(filePath);
   
-  // Skip files that don't export a name property (helper modules)
   if (!event.name) {
     continue;
   }
@@ -91,9 +90,7 @@ for (const file of eventFiles) {
   logger.info(`Loaded event: ${event.name}`);
 }
 
-client.once('clientReady', async () => {
-  logger.info(`Logged in as ${client.user.tag}`);
-  
+client.once('ready', async (client) => {
   services.scheduleManager = new ScheduleManager(pool);
   services.containerBuilder = new ScheduleContainerBuilder();
   services.whitelistManager = new WhitelistManager(pool);
@@ -101,7 +98,6 @@ client.once('clientReady', async () => {
   services.timerService = new TimerService(services.updateManager);
   services.healthCheck = new HealthCheck(client, pool);
   
-  // Start health check endpoint if HEALTH_PORT is configured
   if (process.env.HEALTH_PORT) {
     services.healthCheck.start();
   }
@@ -122,13 +118,11 @@ process.on('uncaughtException', (error) => {
     stack: error.stack
   });
   
-  // Don't exit on WebSocket errors - discord.js will handle reconnection
   if (error.message && error.message.includes('Opening handshake has timed out')) {
     logger.warn('WebSocket timeout detected - discord.js will attempt to reconnect');
     return;
   }
   
-  // For other critical errors, exit after a delay
   logger.error('Fatal error - shutting down in 5 seconds');
   setTimeout(() => {
     process.exit(1);

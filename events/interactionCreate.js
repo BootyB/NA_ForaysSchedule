@@ -260,11 +260,6 @@ async function handleTimezoneSelect(interaction) {
     flags: MessageFlags.Ephemeral
   });
 
-  await interaction.message.edit({
-    components: interaction.message.components
-  }).catch(() => {
-  });
-
   logger.debug('Generated timezone calendar link', { 
     user: interaction.user.tag,
     raidType,

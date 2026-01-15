@@ -36,7 +36,7 @@ class TimerService {
 
   async runUpdate() {
     try {
-      logger.debug('Timer triggered update cycle');
+      logger.info('Timer triggered update cycle');
       await this.updateManager.updateAllSchedules();
     } catch (error) {
       logger.error('Error in timer update cycle', {

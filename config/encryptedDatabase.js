@@ -47,13 +47,13 @@ function decryptConfigFields(encryptedConfig) {
     schedule_overview_ft: encryptedConfig.schedule_overview_ft ? decrypt(encryptedConfig.schedule_overview_ft) : null,
     schedule_overview_drs: encryptedConfig.schedule_overview_drs ? decrypt(encryptedConfig.schedule_overview_drs) : null,
     
-    enabled_hosts_ba: encryptedConfig.enabled_hosts_ba ? decryptJSON(encryptedConfig.enabled_hosts_ba) : null,
-    enabled_hosts_ft: encryptedConfig.enabled_hosts_ft ? decryptJSON(encryptedConfig.enabled_hosts_ft) : null,
-    enabled_hosts_drs: encryptedConfig.enabled_hosts_drs ? decryptJSON(encryptedConfig.enabled_hosts_drs) : null,
+    enabled_hosts_ba: encryptedConfig.enabled_hosts_ba ? (decryptJSON(encryptedConfig.enabled_hosts_ba) || []) : null,
+    enabled_hosts_ft: encryptedConfig.enabled_hosts_ft ? (decryptJSON(encryptedConfig.enabled_hosts_ft) || []) : null,
+    enabled_hosts_drs: encryptedConfig.enabled_hosts_drs ? (decryptJSON(encryptedConfig.enabled_hosts_drs) || []) : null,
     
-    schedule_message_ba: encryptedConfig.schedule_message_ba ? decryptJSON(encryptedConfig.schedule_message_ba) : null,
-    schedule_message_ft: encryptedConfig.schedule_message_ft ? decryptJSON(encryptedConfig.schedule_message_ft) : null,
-    schedule_message_drs: encryptedConfig.schedule_message_drs ? decryptJSON(encryptedConfig.schedule_message_drs) : null,
+    schedule_message_ba: encryptedConfig.schedule_message_ba ? (decryptJSON(encryptedConfig.schedule_message_ba) || []) : null,
+    schedule_message_ft: encryptedConfig.schedule_message_ft ? (decryptJSON(encryptedConfig.schedule_message_ft) || []) : null,
+    schedule_message_drs: encryptedConfig.schedule_message_drs ? (decryptJSON(encryptedConfig.schedule_message_drs) || []) : null,
     
     schedule_color_ba: encryptedConfig.schedule_color_ba,
     schedule_color_ft: encryptedConfig.schedule_color_ft,

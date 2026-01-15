@@ -61,11 +61,15 @@ class UpdateManager {
   }
 
   async updateSchedule(guildId, raidType, config) {
+    const startTime = Date.now();
     try {
+      logger.debug('Starting updateSchedule', { guildId, raidType });
       const stateKey = `${guildId}_${raidType}`;
       
       const hostsKey = `enabled_hosts_${raidType.toLowerCase()}`;
       const enabledHosts = config[hostsKey];
+      
+      logger.debug('Enabled hosts check', { guildId, raidType, hostsKey, enabledHosts });
       
       if (!enabledHosts) {
         logger.debug('No enabled hosts for raid type', { guildId, raidType });
@@ -95,8 +99,6 @@ class UpdateManager {
 
       const containers = await this.containerBuilder.buildScheduleContainers(groupedRuns, raidType, customColor);
       
-      const overviewContainer = this.containerBuilder.buildOverviewContainer(raidType, customColor);
-
       const channelKey = `schedule_channel_${raidType.toLowerCase()}`;
       const channelId = config[channelKey];
       
@@ -116,30 +118,42 @@ class UpdateManager {
       const existingMessageIds = config[messageKey] || [];
       const existingOverviewId = config[overviewMessageKey];
 
+      logger.debug('Existing message state', { 
+        guildId, 
+        raidType, 
+        existingMessageIds,
+        existingMessageIdsLength: existingMessageIds.length,
+        existingOverviewId,
+        messageKey,
+        overviewMessageKey
+      });
+
       const needsRecreation = !existingOverviewId && existingMessageIds.length > 0;
       
-      if (needsRecreation) {
-        logger.info('Overview missing, recreating all messages in correct order', { guildId, raidType });
+      const needsOverviewCreation = !existingOverviewId || (existingMessageIds.length > 0 && !existingOverviewId);
+      let overviewMessageId = existingOverviewId;
+      
+      if (needsOverviewCreation) {
+        logger.info('Creating overview message (missing or recreating)', { guildId, raidType });
         
-        for (const messageId of existingMessageIds) {
-          try {
-            const message = await channel.messages.fetch(messageId).catch(() => null);
-            if (message) {
-              await message.delete();
+        if (existingMessageIds.length > 0) {
+          for (const messageId of existingMessageIds) {
+            try {
+              const message = await channel.messages.fetch(messageId).catch(() => null);
+              if (message) {
+                await message.delete();
+              }
+            } catch (error) {
+              logger.error('Error deleting message during recreation', { error: error.message, messageId });
             }
-          } catch (error) {
-            logger.error('Error deleting message during recreation', { error: error.message, messageId });
           }
+          existingMessageIds.length = 0;
         }
         
-        existingMessageIds.length = 0;
-      }
-
-      let overviewMessageId = existingOverviewId;
-      const bannerAttachment = this.getBannerAttachment(raidType);
-      
-      try {
-        if (!existingOverviewId || needsRecreation) {
+        const overviewContainer = this.containerBuilder.buildOverviewContainer(raidType, customColor);
+        const bannerAttachment = this.getBannerAttachment(raidType);
+        
+        try {
           const botMember = await channel.guild.members.fetchMe();
           const permissions = channel.permissionsFor(botMember);
           
@@ -172,25 +186,20 @@ class UpdateManager {
           }
           const newMessage = await channel.send(messageOptions);
           overviewMessageId = newMessage.id;
-          logger.debug('Created new overview message', { guildId, raidType });
-        } else {
-          const existingMessage = await channel.messages.fetch(existingOverviewId).catch(() => null);
-          if (existingMessage) {
-            await existingMessage.edit({ components: [overviewContainer.toJSON()] });
-            logger.debug('Updated existing overview message', { guildId, raidType, messageId: existingOverviewId });
-          } else {
-            logger.warn('Overview message not found, will recreate on next update', { guildId, raidType, messageId: existingOverviewId });
-          }
+          logger.info('Created overview message', { guildId, raidType, messageId: overviewMessageId });
+        } catch (error) {
+          logger.error('Error creating overview message', {
+            error: error.message,
+            code: error.code,
+            httpStatus: error.httpStatus,
+            stack: error.stack,
+            guildId,
+            raidType
+          });
+          return;
         }
-      } catch (error) {
-        logger.error('Error updating overview message', {
-          error: error.message,
-          code: error.code,
-          httpStatus: error.httpStatus,
-          stack: error.stack,
-          guildId,
-          raidType
-        });
+      } else {
+        logger.debug('Overview already exists, skipping update', { guildId, raidType, messageId: existingOverviewId });
       }
 
       const newMessageIds = [];
@@ -260,6 +269,14 @@ class UpdateManager {
           updates[overviewMessageKey] = overviewMessageId;
         }
         
+        logger.debug('Saving message IDs to database', {
+          guildId,
+          raidType,
+          updates,
+          newMessageIds,
+          overviewMessageId
+        });
+        
         await encryptedDb.updateServerConfig(guildId, updates);
       }
 
@@ -270,11 +287,13 @@ class UpdateManager {
       };
       await this.saveState();
 
+      const duration = ((Date.now() - startTime) / 1000).toFixed(2);
       logger.info('Schedule updated successfully', {
         guildId,
         raidType,
         containers: containers.length,
-        runsCount: Object.values(groupedRuns).flat().length
+        runsCount: Object.values(groupedRuns).flat().length,
+        duration: `${duration}s`
       });
 
     } catch (error) {
@@ -289,21 +308,52 @@ class UpdateManager {
 
   async updateAllSchedules() {
     try {
+      const startTime = Date.now();
       const configs = await encryptedDb.getActiveServerConfigs(
         'WHERE setup_complete = 1 AND auto_update = 1'
       );
 
       logger.info('Starting update cycle', { configCount: configs.length });
 
-      for (const config of configs) {
-        for (const raidType of ['BA', 'DRS', 'FT']) {
-          await this.updateSchedule(config.guild_id, raidType, config);
-          
-          await new Promise(resolve => setTimeout(resolve, 1000));
+      const CONCURRENCY_LIMIT = 3;
+      const results = [];
+      
+      for (let i = 0; i < configs.length; i += CONCURRENCY_LIMIT) {
+        const batch = configs.slice(i, i + CONCURRENCY_LIMIT);
+        
+        const batchPromises = batch.map(async (config) => {
+          try {
+            await Promise.all([
+              this.updateSchedule(config.guild_id, 'BA', config),
+              this.updateSchedule(config.guild_id, 'DRS', config),
+              this.updateSchedule(config.guild_id, 'FT', config)
+            ]);
+            return { guild_id: config.guild_id, success: true };
+          } catch (error) {
+            logger.error('Error updating guild schedules', {
+              guildId: config.guild_id,
+              error: error.message
+            });
+            return { guild_id: config.guild_id, success: false, error: error.message };
+          }
+        });
+        
+        const batchResults = await Promise.all(batchPromises);
+        results.push(...batchResults);
+        
+        if (i + CONCURRENCY_LIMIT < configs.length) {
+          await new Promise(resolve => setTimeout(resolve, 500));
         }
       }
 
-      logger.info('Update cycle complete');
+      const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+      const successful = results.filter(r => r.success).length;
+      logger.info('Update cycle complete', { 
+        duration: `${duration}s`,
+        totalGuilds: configs.length,
+        successful,
+        failed: configs.length - successful
+      });
 
     } catch (error) {
       logger.error('Error in updateAllSchedules', {

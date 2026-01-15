@@ -1,6 +1,6 @@
 const { ContainerBuilder, TextDisplayBuilder, StringSelectMenuBuilder, ChannelSelectMenuBuilder, ChannelType, ButtonBuilder, ButtonStyle, ActionRowBuilder } = require('discord.js');
 const logger = require('../utils/logger');
-const { getAllHostServers } = require('../config/hostServers');
+const { getAllHostServers, getServerEmoji } = require('../config/hostServers');
 const encryptedDb = require('../config/encryptedDatabase');
 
 const setupState = new Map();
@@ -197,11 +197,18 @@ async function showHostSelection(interaction, services, raidType) {
     .setMinValues(1)
     .setMaxValues(hostServers.length)
     .addOptions(
-      hostServers.map(server => ({
-        label: server,
-        value: server,
-        default: false
-      }))
+      hostServers.map(server => {
+        const option = {
+          label: server,
+          value: server,
+          default: false
+        };
+        const emoji = getServerEmoji(server);
+        if (emoji) {
+          option.emoji = emoji;
+        }
+        return option;
+      })
     );
 
   container.addActionRowComponents(
