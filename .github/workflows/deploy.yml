@@ -22,6 +22,7 @@ jobs:
             cd ~/NA_ForaysSchedule_prod
             git fetch origin main
             git reset --hard origin/main
+            git checkout HEAD -- ecosystem.config.js
             npm ci --omit=dev
-            pm2 restart na-forays-schedule-prod || pm2 start ecosystem.config.js --name na-forays-schedule-prod
+            pm2 restart na-forays-schedule-prod || pm2 start ecosystem.config.js
             pm2 save
