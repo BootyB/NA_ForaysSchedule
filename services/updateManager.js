@@ -313,7 +313,7 @@ class UpdateManager {
         'WHERE setup_complete = 1 AND auto_update = 1'
       );
 
-      logger.info('Starting update cycle', { configCount: configs.length });
+      logger.debug('Starting update cycle', { configCount: configs.length });
 
       const CONCURRENCY_LIMIT = 3;
       const results = [];
@@ -348,7 +348,7 @@ class UpdateManager {
 
       const duration = ((Date.now() - startTime) / 1000).toFixed(1);
       const successful = results.filter(r => r.success).length;
-      logger.info('Update cycle complete', { 
+      logger.debug('Update cycle complete', { 
         duration: `${duration}s`,
         totalGuilds: configs.length,
         successful,

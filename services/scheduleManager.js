@@ -85,7 +85,7 @@ class ScheduleManager {
         groupedRuns[run.ServerName].push(run);
       }
 
-      logger.info('Fetched schedule', {
+      logger.debug('Fetched schedule', {
         raidType,
         enabledHosts: enabledHosts.length,
         totalRuns: runs.length,
