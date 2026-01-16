@@ -1,28 +1,55 @@
 const pool = require('./database');
-const { encrypt, decrypt, encryptJSON, decryptJSON } = require('../utils/encryption');
+const { encrypt, decrypt, encryptJSON, decryptJSON, DEV_SERVER_ID } = require('../utils/encryption');
+
+// Helper to mark dev server data for non-encryption
+function encryptField(value, isDevServer) {
+  if (!value) return null;
+  if (isDevServer) return `DEV:${value}`;
+  return encrypt(value);
+}
+
+function encryptJSONField(value, isDevServer) {
+  if (!value) return null;
+  if (isDevServer) return `DEV:${JSON.stringify(value)}`;
+  return encryptJSON(value);
+}
+
+function decryptField(value) {
+  if (!value) return null;
+  if (value.startsWith('DEV:')) return value.substring(4);
+  return decrypt(value);
+}
+
+function decryptJSONField(value) {
+  if (!value) return null;
+  if (value.startsWith('DEV:')) return JSON.parse(value.substring(4));
+  return decryptJSON(value);
+}
 
 function encryptConfigFields(guildId, config) {
+  const isDevServer = guildId === DEV_SERVER_ID;
+  
   return {
-    guild_id: encrypt(guildId),
-    guild_name: config.guild_name ? encrypt(config.guild_name) : null,
+    guild_id: encryptField(guildId, isDevServer),
+    guild_name: config.guild_name ? encryptField(config.guild_name, isDevServer) : null,
     setup_complete: config.setup_complete,
     auto_update: config.auto_update,
     
-    schedule_channel_ba: config.schedule_channel_ba ? encrypt(config.schedule_channel_ba) : null,
-    schedule_channel_ft: config.schedule_channel_ft ? encrypt(config.schedule_channel_ft) : null,
-    schedule_channel_drs: config.schedule_channel_drs ? encrypt(config.schedule_channel_drs) : null,
+    schedule_channel_ba: config.schedule_channel_ba ? encryptField(config.schedule_channel_ba, isDevServer) : null,
+    schedule_channel_ft: config.schedule_channel_ft ? encryptField(config.schedule_channel_ft, isDevServer) : null,
+    schedule_channel_drs: config.schedule_channel_drs ? encryptField(config.schedule_channel_drs, isDevServer) : null,
     
-    schedule_overview_ba: config.schedule_overview_ba ? encrypt(config.schedule_overview_ba) : null,
-    schedule_overview_ft: config.schedule_overview_ft ? encrypt(config.schedule_overview_ft) : null,
-    schedule_overview_drs: config.schedule_overview_drs ? encrypt(config.schedule_overview_drs) : null,
+    schedule_overview_ba: config.schedule_overview_ba ? encryptField(config.schedule_overview_ba, isDevServer) : null,
+    schedule_overview_ft: config.schedule_overview_ft ? encryptField(config.schedule_overview_ft, isDevServer) : null,
+    schedule_overview_drs: config.schedule_overview_drs ? encryptField(config.schedule_overview_drs, isDevServer) : null,
     
-    enabled_hosts_ba: config.enabled_hosts_ba ? encryptJSON(config.enabled_hosts_ba) : null,
-    enabled_hosts_ft: config.enabled_hosts_ft ? encryptJSON(config.enabled_hosts_ft) : null,
-    enabled_hosts_drs: config.enabled_hosts_drs ? encryptJSON(config.enabled_hosts_drs) : null,
+    enabled_hosts_ba: config.enabled_hosts_ba ? encryptJSONField(config.enabled_hosts_ba, isDevServer) : null,
+    enabled_hosts_ft: config.enabled_hosts_ft ? encryptJSONField(config.enabled_hosts_ft, isDevServer) : null,
+    enabled_hosts_drs: config.enabled_hosts_drs ? encryptJSONField(config.enabled_hosts_drs, isDevServer) : null,
     
-    schedule_message_ba: config.schedule_message_ba ? encryptJSON(config.schedule_message_ba) : null,
-    schedule_message_ft: config.schedule_message_ft ? encryptJSON(config.schedule_message_ft) : null,
-    schedule_message_drs: config.schedule_message_drs ? encryptJSON(config.schedule_message_drs) : null,
+    schedule_message_ba: config.schedule_message_ba ? encryptJSONField(config.schedule_message_ba, isDevServer) : null,
+    schedule_message_ft: config.schedule_message_ft ? encryptJSONField(config.schedule_message_ft, isDevServer) : null,
+    schedule_message_drs: config.schedule_message_drs ? encryptJSONField(config.schedule_message_drs, isDevServer) : null,
     
     schedule_color_ba: config.schedule_color_ba,
     schedule_color_ft: config.schedule_color_ft,
@@ -34,26 +61,26 @@ function decryptConfigFields(encryptedConfig) {
   if (!encryptedConfig) return null;
   
   return {
-    guild_id: decrypt(encryptedConfig.guild_id),
-    guild_name: encryptedConfig.guild_name ? decrypt(encryptedConfig.guild_name) : null,
+    guild_id: decryptField(encryptedConfig.guild_id),
+    guild_name: encryptedConfig.guild_name ? decryptField(encryptedConfig.guild_name) : null,
     setup_complete: encryptedConfig.setup_complete,
     auto_update: encryptedConfig.auto_update,
     
-    schedule_channel_ba: encryptedConfig.schedule_channel_ba ? decrypt(encryptedConfig.schedule_channel_ba) : null,
-    schedule_channel_ft: encryptedConfig.schedule_channel_ft ? decrypt(encryptedConfig.schedule_channel_ft) : null,
-    schedule_channel_drs: encryptedConfig.schedule_channel_drs ? decrypt(encryptedConfig.schedule_channel_drs) : null,
+    schedule_channel_ba: encryptedConfig.schedule_channel_ba ? decryptField(encryptedConfig.schedule_channel_ba) : null,
+    schedule_channel_ft: encryptedConfig.schedule_channel_ft ? decryptField(encryptedConfig.schedule_channel_ft) : null,
+    schedule_channel_drs: encryptedConfig.schedule_channel_drs ? decryptField(encryptedConfig.schedule_channel_drs) : null,
     
-    schedule_overview_ba: encryptedConfig.schedule_overview_ba ? decrypt(encryptedConfig.schedule_overview_ba) : null,
-    schedule_overview_ft: encryptedConfig.schedule_overview_ft ? decrypt(encryptedConfig.schedule_overview_ft) : null,
-    schedule_overview_drs: encryptedConfig.schedule_overview_drs ? decrypt(encryptedConfig.schedule_overview_drs) : null,
+    schedule_overview_ba: encryptedConfig.schedule_overview_ba ? decryptField(encryptedConfig.schedule_overview_ba) : null,
+    schedule_overview_ft: encryptedConfig.schedule_overview_ft ? decryptField(encryptedConfig.schedule_overview_ft) : null,
+    schedule_overview_drs: encryptedConfig.schedule_overview_drs ? decryptField(encryptedConfig.schedule_overview_drs) : null,
     
-    enabled_hosts_ba: encryptedConfig.enabled_hosts_ba ? (decryptJSON(encryptedConfig.enabled_hosts_ba) || []) : null,
-    enabled_hosts_ft: encryptedConfig.enabled_hosts_ft ? (decryptJSON(encryptedConfig.enabled_hosts_ft) || []) : null,
-    enabled_hosts_drs: encryptedConfig.enabled_hosts_drs ? (decryptJSON(encryptedConfig.enabled_hosts_drs) || []) : null,
+    enabled_hosts_ba: encryptedConfig.enabled_hosts_ba ? (decryptJSONField(encryptedConfig.enabled_hosts_ba) || []) : null,
+    enabled_hosts_ft: encryptedConfig.enabled_hosts_ft ? (decryptJSONField(encryptedConfig.enabled_hosts_ft) || []) : null,
+    enabled_hosts_drs: encryptedConfig.enabled_hosts_drs ? (decryptJSONField(encryptedConfig.enabled_hosts_drs) || []) : null,
     
-    schedule_message_ba: encryptedConfig.schedule_message_ba ? (decryptJSON(encryptedConfig.schedule_message_ba) || []) : null,
-    schedule_message_ft: encryptedConfig.schedule_message_ft ? (decryptJSON(encryptedConfig.schedule_message_ft) || []) : null,
-    schedule_message_drs: encryptedConfig.schedule_message_drs ? (decryptJSON(encryptedConfig.schedule_message_drs) || []) : null,
+    schedule_message_ba: encryptedConfig.schedule_message_ba ? (decryptJSONField(encryptedConfig.schedule_message_ba) || []) : null,
+    schedule_message_ft: encryptedConfig.schedule_message_ft ? (decryptJSONField(encryptedConfig.schedule_message_ft) || []) : null,
+    schedule_message_drs: encryptedConfig.schedule_message_drs ? (decryptJSONField(encryptedConfig.schedule_message_drs) || []) : null,
     
     schedule_color_ba: encryptedConfig.schedule_color_ba,
     schedule_color_ft: encryptedConfig.schedule_color_ft,
@@ -69,7 +96,7 @@ async function getServerConfig(guildId) {
   
   for (const config of allConfigs) {
     try {
-      const decryptedId = decrypt(config.guild_id);
+      const decryptedId = decryptField(config.guild_id);
       if (decryptedId === guildId) {
         return decryptConfigFields(config);
       }
@@ -146,10 +173,12 @@ async function upsertServerConfig(guildId, config) {
 async function updateServerConfig(guildId, updates) {
   const allConfigs = await pool.query('SELECT guild_id FROM na_bot_server_configs');
   
+  const isDevServer = guildId === DEV_SERVER_ID;
+  
   let encryptedGuildIdInDb = null;
   for (const config of allConfigs) {
     try {
-      const decryptedId = decrypt(config.guild_id);
+      const decryptedId = decryptField(config.guild_id);
       if (decryptedId === guildId) {
         encryptedGuildIdInDb = config.guild_id;
         break;
@@ -171,11 +200,11 @@ async function updateServerConfig(guildId, updates) {
     }
     
     if (key === 'guild_name') {
-      encryptedUpdates[key] = encrypt(value);
+      encryptedUpdates[key] = encryptField(value, isDevServer);
     } else if (key.includes('channel') || key.includes('overview')) {
-      encryptedUpdates[key] = encrypt(value);
+      encryptedUpdates[key] = encryptField(value, isDevServer);
     } else if (key.includes('enabled_hosts') || key.includes('schedule_message')) {
-      encryptedUpdates[key] = encryptJSON(value);
+      encryptedUpdates[key] = encryptJSONField(value, isDevServer);
     } else {
       encryptedUpdates[key] = value;
     }
@@ -195,7 +224,7 @@ async function deleteServerConfig(guildId) {
   
   for (const config of allConfigs) {
     try {
-      const decryptedId = decrypt(config.guild_id);
+      const decryptedId = decryptField(config.guild_id);
       if (decryptedId === guildId) {
         await pool.query(
           'DELETE FROM na_bot_server_configs WHERE guild_id = ?',
@@ -216,12 +245,12 @@ async function getWhitelistedGuild(guildId) {
   
   for (const guild of allGuilds) {
     try {
-      const decryptedId = decrypt(guild.guild_id);
+      const decryptedId = decryptField(guild.guild_id);
       if (decryptedId === guildId) {
         return {
           guild_id: decryptedId,
-          guild_name: guild.guild_name ? decrypt(guild.guild_name) : null,
-          added_by: guild.added_by ? decrypt(guild.added_by) : null,
+          guild_name: guild.guild_name ? decryptField(guild.guild_name) : null,
+          added_by: guild.added_by ? decryptField(guild.added_by) : null,
           added_at: guild.added_at,
           is_active: guild.is_active,
           notes: guild.notes
@@ -240,7 +269,7 @@ async function removeWhitelistedGuild(guildId) {
   
   for (const guild of allGuilds) {
     try {
-      const decryptedId = decrypt(guild.guild_id);
+      const decryptedId = decryptField(guild.guild_id);
       if (decryptedId === guildId) {
         await pool.query(
           'UPDATE na_bot_whitelisted_guilds SET is_active = 0 WHERE guild_id = ?',
@@ -260,9 +289,9 @@ async function getAllWhitelistedGuilds() {
   );
   
   return encryptedGuilds.map(guild => ({
-    guild_id: decrypt(guild.guild_id),
-    guild_name: guild.guild_name ? decrypt(guild.guild_name) : null,
-    added_by: guild.added_by ? decrypt(guild.added_by) : null,
+    guild_id: decryptField(guild.guild_id),
+    guild_name: guild.guild_name ? decryptField(guild.guild_name) : null,
+    added_by: guild.added_by ? decryptField(guild.added_by) : null,
     added_at: guild.added_at,
     is_active: guild.is_active,
     notes: guild.notes
@@ -270,9 +299,10 @@ async function getAllWhitelistedGuilds() {
 }
 
 async function addWhitelistedGuild(guildId, guildName, addedBy, notes = null) {
+  const isDevServer = guildId === DEV_SERVER_ID;
   await pool.query(
     'INSERT INTO na_bot_whitelisted_guilds (guild_id, guild_name, added_by, notes) VALUES (?, ?, ?, ?)',
-    [encrypt(guildId), encrypt(guildName), encrypt(addedBy), notes]
+    [encryptField(guildId, isDevServer), encryptField(guildName, isDevServer), encryptField(addedBy, isDevServer), notes]
   );
 }
 

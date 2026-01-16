@@ -4,6 +4,7 @@ const { getAllHostServers, getServerEmoji } = require('../config/hostServers');
 const { areValidHostServers, isValidRaidType } = require('../utils/validators');
 const encryptedDb = require('../config/encryptedDatabase');
 const { buildConfigMenu } = require('../utils/configMenuBuilder');
+const { showChannelSelection, setupState } = require('./setupInteractions');
 
 async function handleConfigInteraction(interaction, services) {
   const customId = interaction.customId;
@@ -100,7 +101,22 @@ async function showRaidConfig(interaction, services, raidType, useEditReply = fa
     return;
   }
 
+  const channelKey = `schedule_channel_${raidType.toLowerCase()}`;
   const hostsKey = `enabled_hosts_${raidType.toLowerCase()}`;
+  
+  if (!config[channelKey] || !config[hostsKey]) {
+    const state = {
+      selectedRaidTypes: [raidType],
+      channels: {},
+      hosts: {},
+      returnToConfig: true
+    };
+    setupState.set(interaction.user.id, state);
+    
+    await showChannelSelection(interaction, services, raidType, [raidType]);
+    return;
+  }
+
   const enabledHosts = config[hostsKey] || [];
 
   const container = new ContainerBuilder();

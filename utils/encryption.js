@@ -1,6 +1,8 @@
 const crypto = require('crypto');
 require('dotenv').config();
 
+const DEV_SERVER_ID = process.env.DEV_SERVER_ID
+
 const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY; // Must be 32 bytes (64 hex chars)
 
 if (!ENCRYPTION_KEY || ENCRYPTION_KEY.length !== 64) {
@@ -12,6 +14,10 @@ const keyBuffer = Buffer.from(ENCRYPTION_KEY, 'hex');
 
 function encrypt(text) {
   if (!text) return null;
+  
+  if (text === DEV_SERVER_ID || text.startsWith('DEV:')) {
+    return `DEV:${text.replace('DEV:', '')}`;
+  }
   
   const iv = crypto.randomBytes(16);
   const cipher = crypto.createCipheriv(algorithm, keyBuffer, iv);
@@ -26,6 +32,10 @@ function encrypt(text) {
 
 function decrypt(encryptedData) {
   if (!encryptedData) return null;
+  
+  if (encryptedData.startsWith('DEV:')) {
+    return encryptedData.substring(4);
+  }
   
   const parts = encryptedData.split(':');
   if (parts.length !== 3) {
@@ -65,5 +75,6 @@ module.exports = {
   encrypt,
   decrypt,
   encryptJSON,
-  decryptJSON
+  decryptJSON,
+  DEV_SERVER_ID
 };

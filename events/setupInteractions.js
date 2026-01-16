@@ -339,22 +339,39 @@ async function handleSetupConfirmation(interaction, services) {
 
     await services.updateManager.forceUpdate(guildId);
 
+    const returnToConfig = state.returnToConfig;
     setupState.delete(interaction.user.id);
 
-    const successContainer = new ContainerBuilder();
-    
-    successContainer.addTextDisplayComponents(
-      new TextDisplayBuilder().setContent('✅ **Setup complete!** Schedules are now being displayed and will update automatically every 60 seconds.')
-    );
-    
-    await interaction.editReply({
-      components: [successContainer]
-    });
+    if (returnToConfig) {
+      const { buildConfigMenu } = require('../utils/configMenuBuilder');
+      const config = await encryptedDb.getServerConfig(guildId);
+      const container = buildConfigMenu(config, interaction.guild);
+      
+      await interaction.editReply({
+        components: [container],
+        flags: 1 << 15
+      });
+      
+      logger.info('Setup completed, returned to config menu', {
+        guildId,
+        raidTypes: state.selectedRaidTypes
+      });
+    } else {
+      const successContainer = new ContainerBuilder();
+      
+      successContainer.addTextDisplayComponents(
+        new TextDisplayBuilder().setContent('✅ **Setup complete!** Schedules are now being displayed and will update automatically every 60 seconds.')
+      );
+      
+      await interaction.editReply({
+        components: [successContainer]
+      });
 
-    logger.info('Setup completed', {
-      guildId,
-      raidTypes: state.selectedRaidTypes
-    });
+      logger.info('Setup completed', {
+        guildId,
+        raidTypes: state.selectedRaidTypes
+      });
+    }
 
   } catch (error) {
     logger.error('Error saving setup', {
@@ -379,4 +396,9 @@ async function handleSetupConfirmation(interaction, services) {
   }
 }
 
-module.exports = { handleSetupInteraction };
+module.exports = { 
+  handleSetupInteraction,
+  showChannelSelection,
+  showHostSelection,
+  setupState
+};
