@@ -103,7 +103,6 @@ class UpdateManager {
       const channelId = config[channelKey];
       
       if (!channelId) {
-        logger.warn('No channel configured', { guildId, raidType });
         return;
       }
 
