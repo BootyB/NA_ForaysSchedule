@@ -1,7 +1,6 @@
 const pool = require('./database');
 const { encrypt, decrypt, encryptJSON, decryptJSON, DEV_SERVER_ID } = require('../utils/encryption');
 
-// Helper to mark dev server data for non-encryption
 function encryptField(value, isDevServer) {
   if (!value) return null;
   if (isDevServer) return `DEV:${value}`;
@@ -30,7 +29,7 @@ function encryptConfigFields(guildId, config) {
   const isDevServer = guildId === DEV_SERVER_ID;
   
   return {
-    guild_id: encryptField(guildId, isDevServer),
+    guild_id: guildId,
     guild_name: config.guild_name ? encryptField(config.guild_name, isDevServer) : null,
     setup_complete: config.setup_complete,
     auto_update: config.auto_update,
@@ -61,7 +60,7 @@ function decryptConfigFields(encryptedConfig) {
   if (!encryptedConfig) return null;
   
   return {
-    guild_id: decryptField(encryptedConfig.guild_id),
+    guild_id: encryptedConfig.guild_id,
     guild_name: encryptedConfig.guild_name ? decryptField(encryptedConfig.guild_name) : null,
     setup_complete: encryptedConfig.setup_complete,
     auto_update: encryptedConfig.auto_update,
@@ -92,20 +91,13 @@ function decryptConfigFields(encryptedConfig) {
 }
 
 async function getServerConfig(guildId) {
-  const allConfigs = await pool.query('SELECT * FROM na_bot_server_configs');
+  const configs = await pool.query('SELECT * FROM na_bot_server_configs WHERE guild_id = ?', [guildId]);
   
-  for (const config of allConfigs) {
-    try {
-      const decryptedId = decryptField(config.guild_id);
-      if (decryptedId === guildId) {
-        return decryptConfigFields(config);
-      }
-    } catch (error) {
-      continue;
-    }
+  if (configs.length === 0) {
+    return null;
   }
   
-  return null;
+  return decryptConfigFields(configs[0]);
 }
 
 async function getActiveServerConfigs(whereClause = '', params = []) {
@@ -171,26 +163,13 @@ async function upsertServerConfig(guildId, config) {
 }
 
 async function updateServerConfig(guildId, updates) {
-  const allConfigs = await pool.query('SELECT guild_id FROM na_bot_server_configs');
+  const exists = await pool.query('SELECT 1 FROM na_bot_server_configs WHERE guild_id = ?', [guildId]);
   
-  const isDevServer = guildId === DEV_SERVER_ID;
-  
-  let encryptedGuildIdInDb = null;
-  for (const config of allConfigs) {
-    try {
-      const decryptedId = decryptField(config.guild_id);
-      if (decryptedId === guildId) {
-        encryptedGuildIdInDb = config.guild_id;
-        break;
-      }
-    } catch (error) {
-      continue;
-    }
-  }
-  
-  if (!encryptedGuildIdInDb) {
+  if (exists.length === 0) {
     throw new Error(`Server config not found for guild: ${guildId}`);
   }
+  
+  const isDevServer = guildId === DEV_SERVER_ID;
   
   const encryptedUpdates = {};
   for (const [key, value] of Object.entries(updates)) {
@@ -215,27 +194,12 @@ async function updateServerConfig(guildId, updates) {
   
   await pool.query(
     `UPDATE na_bot_server_configs SET ${setClauses} WHERE guild_id = ?`,
-    [...values, encryptedGuildIdInDb]
+    [...values, guildId]
   );
 }
 
 async function deleteServerConfig(guildId) {
-  const allConfigs = await pool.query('SELECT guild_id FROM na_bot_server_configs');
-  
-  for (const config of allConfigs) {
-    try {
-      const decryptedId = decryptField(config.guild_id);
-      if (decryptedId === guildId) {
-        await pool.query(
-          'DELETE FROM na_bot_server_configs WHERE guild_id = ?',
-          [config.guild_id]
-        );
-        return;
-      }
-    } catch (error) {
-      continue;
-    }
-  }
+  await pool.query('DELETE FROM na_bot_server_configs WHERE guild_id = ?', [guildId]);
 }
 
 async function getWhitelistedGuild(guildId) {
