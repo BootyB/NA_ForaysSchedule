@@ -98,7 +98,6 @@ async function handleChannelSelection(interaction, services, raidType) {
     return;
   }
   
-  // Check bot permissions in the selected channel
   const botMember = await interaction.guild.members.fetchMe();
   const permissions = channel.permissionsFor(botMember);
   
@@ -225,7 +224,6 @@ async function handleHostSelection(interaction, services, raidType) {
   const selectedHosts = interaction.values;
   const state = setupState.get(interaction.user.id) || {};
   
-  // Validate state
   if (!state.selectedRaidTypes || !Array.isArray(state.selectedRaidTypes)) {
     const errorContainer = new ContainerBuilder();
     errorContainer.addTextDisplayComponents(
@@ -317,22 +315,56 @@ async function handleSetupConfirmation(interaction, services) {
     
     const guildId = interaction.guild.id;
 
-    const configData = {
-      guild_name: interaction.guild.name,
-      setup_complete: 1,
-      auto_update: 1,
-      // Set default colors (-1 = use default from constants.js)
-      schedule_color_ba: -1,
-      schedule_color_ft: -1,
-      schedule_color_drs: -1
-    };
-
-    for (const raidType of state.selectedRaidTypes) {
-      const channelKey = `schedule_channel_${raidType.toLowerCase()}`;
-      const hostsKey = `enabled_hosts_${raidType.toLowerCase()}`;
+    let configData;
+    
+    if (state.returnToConfig) {
+      const existingConfig = await encryptedDb.getServerConfig(guildId);
       
-      configData[channelKey] = state.channels[raidType];
-      configData[hostsKey] = state.hosts[raidType];
+      configData = {
+        guild_name: interaction.guild.name,
+        setup_complete: 1,
+        auto_update: existingConfig?.auto_update ?? 1,
+        schedule_color_ba: existingConfig?.schedule_color_ba ?? -1,
+        schedule_color_ft: existingConfig?.schedule_color_ft ?? -1,
+        schedule_color_drs: existingConfig?.schedule_color_drs ?? -1,
+        schedule_channel_ba: existingConfig?.schedule_channel_ba,
+        schedule_channel_ft: existingConfig?.schedule_channel_ft,
+        schedule_channel_drs: existingConfig?.schedule_channel_drs,
+        enabled_hosts_ba: existingConfig?.enabled_hosts_ba,
+        enabled_hosts_ft: existingConfig?.enabled_hosts_ft,
+        enabled_hosts_drs: existingConfig?.enabled_hosts_drs,
+        schedule_overview_ba: existingConfig?.schedule_overview_ba,
+        schedule_overview_ft: existingConfig?.schedule_overview_ft,
+        schedule_overview_drs: existingConfig?.schedule_overview_drs,
+        schedule_message_ba: existingConfig?.schedule_message_ba,
+        schedule_message_ft: existingConfig?.schedule_message_ft,
+        schedule_message_drs: existingConfig?.schedule_message_drs
+      };
+      
+      for (const raidType of state.selectedRaidTypes) {
+        const channelKey = `schedule_channel_${raidType.toLowerCase()}`;
+        const hostsKey = `enabled_hosts_${raidType.toLowerCase()}`;
+        
+        configData[channelKey] = state.channels[raidType];
+        configData[hostsKey] = state.hosts[raidType];
+      }
+    } else {
+      configData = {
+        guild_name: interaction.guild.name,
+        setup_complete: 1,
+        auto_update: 1,
+        schedule_color_ba: -1,
+        schedule_color_ft: -1,
+        schedule_color_drs: -1
+      };
+
+      for (const raidType of state.selectedRaidTypes) {
+        const channelKey = `schedule_channel_${raidType.toLowerCase()}`;
+        const hostsKey = `enabled_hosts_${raidType.toLowerCase()}`;
+        
+        configData[channelKey] = state.channels[raidType];
+        configData[hostsKey] = state.hosts[raidType];
+      }
     }
 
     await encryptedDb.upsertServerConfig(guildId, configData);
