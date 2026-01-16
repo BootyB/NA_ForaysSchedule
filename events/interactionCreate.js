@@ -122,7 +122,7 @@ async function handleButtonInteraction(interaction, services) {
     }
     
     else if (customId.startsWith('config_')) {
-      const { handleConfigInteraction } = require('./configInteractions');
+      const { handleConfigInteraction } = require('./config');
       await handleConfigInteraction(interaction, services);
     }
     
