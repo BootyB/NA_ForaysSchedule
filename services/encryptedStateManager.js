@@ -28,6 +28,10 @@ class EncryptedStateManager {
 
   async save() {
     try {
+      // Ensure the data directory exists
+      const dataDir = path.dirname(this.stateFile);
+      await fs.mkdir(dataDir, { recursive: true });
+      
       const encryptedData = encryptJSON(this.state);
       const fileContents = JSON.stringify({ encrypted: encryptedData }, null, 2);
       await fs.writeFile(this.stateFile, fileContents, 'utf8');
