@@ -90,19 +90,34 @@ for (const file of eventFiles) {
   logger.info(`Loaded event: ${event.name}`);
 }
 
-client.once('clientReady', async (client) => {
+client.once('clientReady', async (readyClient) => {
+  // Initialize services BEFORE the ready event fires to other handlers
   services.scheduleManager = new ScheduleManager(pool);
   services.containerBuilder = new ScheduleContainerBuilder();
   services.whitelistManager = new WhitelistManager(pool);
-  services.updateManager = new UpdateManager(pool, client);
+  services.updateManager = new UpdateManager(pool, readyClient);
   services.timerService = new TimerService(services.updateManager);
-  services.healthCheck = new HealthCheck(client, pool);
+  services.healthCheck = new HealthCheck(readyClient, pool);
+  
+  logger.info('All services initialized');
+  
+  // Now initialize each service
+  await services.updateManager.initialize();
+  logger.info('Update manager initialized');
+  
+  await services.whitelistManager.initializeWhitelists();
+  logger.info('Whitelists initialized');
+  
+  services.timerService.start();
+  logger.info('Timer service started');
   
   if (process.env.HEALTH_PORT) {
     services.healthCheck.start();
   }
   
-  logger.info('All services initialized');
+  logger.info(`Bot logged in as ${readyClient.user.tag}`);
+  logger.info(`Connected to ${readyClient.guilds.cache.size} guilds`);
+  logger.info('Bot is ready!');
 });
 
 process.on('unhandledRejection', (error) => {

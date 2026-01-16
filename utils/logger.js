@@ -43,28 +43,26 @@ const logger = winston.createLogger({
       filename: path.join('logs', 'combined.log'),
       maxsize: 5242880,
       maxFiles: 5
+    }),
+    // Always add console transport so PM2 can capture logs
+    new winston.transports.Console({
+      format: format.combine(
+        format.colorize(),
+        format.printf(({ level, message, timestamp, ...metadata }) => {
+          let msg = `${timestamp} ${level}: ${message}`;
+          
+          const metaKeys = Object.keys(metadata).filter(key => key !== 'service');
+          if (metaKeys.length > 0) {
+            const cleanMeta = {};
+            metaKeys.forEach(key => cleanMeta[key] = metadata[key]);
+            msg += ` ${JSON.stringify(cleanMeta)}`;
+          }
+          
+          return msg;
+        })
+      )
     })
   ]
 });
-
-if (process.env.NODE_ENV !== 'production') {
-  logger.add(new winston.transports.Console({
-    format: format.combine(
-      format.colorize(),
-      format.printf(({ level, message, timestamp, ...metadata }) => {
-        let msg = `${timestamp} ${level}: ${message}`;
-        
-        const metaKeys = Object.keys(metadata).filter(key => key !== 'service');
-        if (metaKeys.length > 0) {
-          const cleanMeta = {};
-          metaKeys.forEach(key => cleanMeta[key] = metadata[key]);
-          msg += ` ${JSON.stringify(cleanMeta)}`;
-        }
-        
-        return msg;
-      })
-    )
-  }));
-}
 
 module.exports = logger;

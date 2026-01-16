@@ -181,7 +181,7 @@ async function handleSelectMenuInteraction(interaction, services) {
     }
     
     else if (customId.startsWith('config_')) {
-      const { handleConfigInteraction } = require('./configInteractions');
+      const { handleConfigInteraction } = require('./config');
       await handleConfigInteraction(interaction, services);
     }
     
@@ -280,7 +280,7 @@ async function handleModalSubmit(interaction, services) {
 
   try {
     if (customId === 'config_color_modal') {
-      const { handleConfigInteraction } = require('./configInteractions');
+      const { handleConfigInteraction } = require('./config');
       await handleConfigInteraction(interaction, services);
     }
   } catch (error) {
