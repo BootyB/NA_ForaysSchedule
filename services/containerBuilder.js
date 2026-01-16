@@ -165,7 +165,7 @@ class ScheduleContainerBuilder {
       isFirst = false;
     }
 
-    logger.info('Built schedule containers', {
+    logger.debug('Built schedule containers', {
       raidType,
       containerCount: containers.length,
       servers: Object.keys(groupedRuns).length
