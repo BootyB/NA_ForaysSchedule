@@ -29,3 +29,4 @@ ecosystem.config.js
 scripts/guilds.txt
 database/migrations/encrypt_existing_data.js
 data/scheduleState.encrypted.json
+REFACTORING_GUIDE.md
