@@ -5,6 +5,7 @@ require('dotenv').config();
 
 const pool = require('./config/database');
 const logger = require('./utils/logger');
+const serviceLocator = require('./services/serviceLocator');
 
 const ScheduleManager = require('./services/scheduleManager');
 const ScheduleContainerBuilder = require('./services/containerBuilder');
@@ -60,15 +61,8 @@ for (const file of commandFiles) {
   }
 }
 
-let services = {
-  pool: pool,
-  scheduleManager: null,
-  containerBuilder: null,
-  updateManager: null,
-  whitelistManager: null,
-  timerService: null,
-  healthCheck: null
-};
+// Register pool immediately (available before client ready)
+serviceLocator.register('pool', pool);
 
 const eventsPath = path.join(__dirname, 'events');
 const eventFiles = fs.readdirSync(eventsPath).filter(file => file.endsWith('.js'));
@@ -82,38 +76,49 @@ for (const file of eventFiles) {
   }
   
   if (event.once) {
-    client.once(event.name, (...args) => event.execute(...args, services));
+    client.once(event.name, (...args) => event.execute(...args));
   } else {
-    client.on(event.name, (...args) => event.execute(...args, services));
+    client.on(event.name, (...args) => event.execute(...args));
   }
   
   logger.info(`Loaded event: ${event.name}`);
 }
 
 client.once('clientReady', async (readyClient) => {
-  // Initialize services BEFORE the ready event fires to other handlers
-  services.scheduleManager = new ScheduleManager(pool);
-  services.containerBuilder = new ScheduleContainerBuilder();
-  services.whitelistManager = new WhitelistManager(pool);
-  services.updateManager = new UpdateManager(pool, readyClient);
-  services.timerService = new TimerService(services.updateManager);
-  services.healthCheck = new HealthCheck(readyClient, pool);
+  // Initialize and register all services with ServiceLocator
+  const scheduleManager = new ScheduleManager(pool);
+  const containerBuilder = new ScheduleContainerBuilder();
+  const whitelistManager = new WhitelistManager(pool);
+  const updateManager = new UpdateManager(pool, readyClient);
+  const timerService = new TimerService(updateManager);
+  const healthCheck = new HealthCheck(readyClient, pool);
   
-  logger.info('All services initialized');
+  serviceLocator.registerAll({
+    scheduleManager,
+    containerBuilder,
+    updateManager,
+    whitelistManager,
+    timerService,
+    healthCheck
+  });
+  
+  logger.info('All services registered with ServiceLocator');
   
   // Now initialize each service
-  await services.updateManager.initialize();
+  await updateManager.initialize();
   logger.info('Update manager initialized');
   
-  await services.whitelistManager.initializeWhitelists();
+  await whitelistManager.initializeWhitelists();
   logger.info('Whitelists initialized');
   
-  services.timerService.start();
+  timerService.start();
   logger.info('Timer service started');
   
   if (process.env.HEALTH_PORT) {
-    services.healthCheck.start();
+    healthCheck.start();
   }
+  
+  serviceLocator.markInitialized();
   
   logger.info(`Bot logged in as ${readyClient.user.tag}`);
   logger.info(`Connected to ${readyClient.guilds.cache.size} guilds`);
@@ -154,16 +159,16 @@ client.on('error', (error) => {
 process.on('SIGINT', async () => {
   logger.info('Shutting down gracefully...');
   
-  if (services.timerService) {
-    services.timerService.stop();
+  if (serviceLocator.has('timerService')) {
+    serviceLocator.get('timerService').stop();
   }
   
-  if (services.healthCheck) {
-    services.healthCheck.stop();
+  if (serviceLocator.has('healthCheck')) {
+    serviceLocator.get('healthCheck').stop();
   }
   
-  if (services.updateManager) {
-    await services.updateManager.saveState();
+  if (serviceLocator.has('updateManager')) {
+    await serviceLocator.get('updateManager').saveState();
   }
   
   try {

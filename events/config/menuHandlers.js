@@ -4,11 +4,12 @@ const { getServerEmoji } = require('../../config/hostServers');
 const encryptedDb = require('../../config/encryptedDatabase');
 const { buildConfigMenu } = require('../../utils/configMenuBuilder');
 const { showChannelSelection, setupState } = require('../setupInteractions');
+const serviceLocator = require('../../services/serviceLocator');
 
 /**
  * Show the main configuration menu
  */
-async function showMainConfigMenu(interaction, services) {
+async function showMainConfigMenu(interaction) {
   const guildId = interaction.guild.id;
 
   const config = await encryptedDb.getServerConfig(guildId);
@@ -36,7 +37,7 @@ async function showMainConfigMenu(interaction, services) {
 /**
  * Show configuration for a specific raid type
  */
-async function showRaidConfig(interaction, services, raidType, useEditReply = false) {
+async function showRaidConfig(interaction, raidType, useEditReply = false) {
   const guildId = interaction.guild.id;
 
   const config = await encryptedDb.getServerConfig(guildId);
@@ -71,7 +72,7 @@ async function showRaidConfig(interaction, services, raidType, useEditReply = fa
     };
     setupState.set(interaction.user.id, state);
     
-    await showChannelSelection(interaction, services, raidType, [raidType]);
+    await showChannelSelection(interaction, raidType, [raidType]);
     return;
   }
 

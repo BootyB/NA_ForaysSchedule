@@ -3,29 +3,30 @@ const logger = require('../utils/logger');
 const { canConfigureBot } = require('../utils/permissions');
 const { GOOGLE_CALENDAR_IDS } = require('../config/constants');
 const rateLimiter = require('../utils/rateLimiter');
+const serviceLocator = require('../services/serviceLocator');
 
 module.exports = {
   name: 'interactionCreate',
-  async execute(interaction, services) {
+  async execute(interaction) {
     if (interaction.isChatInputCommand()) {
-      await handleSlashCommand(interaction, services);
+      await handleSlashCommand(interaction);
     }
     
     else if (interaction.isButton()) {
-      await handleButtonInteraction(interaction, services);
+      await handleButtonInteraction(interaction);
     }
     
     else if (interaction.isStringSelectMenu() || interaction.isChannelSelectMenu()) {
-      await handleSelectMenuInteraction(interaction, services);
+      await handleSelectMenuInteraction(interaction);
     }
     
     else if (interaction.isModalSubmit()) {
-      await handleModalSubmit(interaction, services);
+      await handleModalSubmit(interaction);
     }
   }
 };
 
-async function handleSlashCommand(interaction, services) {
+async function handleSlashCommand(interaction) {
   const command = interaction.client.commands.get(interaction.commandName);
 
   if (!command) {
@@ -54,7 +55,7 @@ async function handleSlashCommand(interaction, services) {
       }
     }
 
-    await command.execute(interaction, services);
+    await command.execute(interaction);
 
     logger.info('Command executed', {
       command: interaction.commandName,
@@ -102,7 +103,7 @@ async function handleSlashCommand(interaction, services) {
 /**
  * Handle button interactions
  */
-async function handleButtonInteraction(interaction, services) {
+async function handleButtonInteraction(interaction) {
   const customId = interaction.customId;
 
   try {
@@ -118,12 +119,12 @@ async function handleButtonInteraction(interaction, services) {
 
     if (customId.startsWith('setup_')) {
       const { handleSetupInteraction } = require('./setupInteractions');
-      await handleSetupInteraction(interaction, services);
+      await handleSetupInteraction(interaction);
     }
     
     else if (customId.startsWith('config_')) {
       const { handleConfigInteraction } = require('./config');
-      await handleConfigInteraction(interaction, services);
+      await handleConfigInteraction(interaction);
     }
     
     else if (customId.startsWith('schedule_info_')) {
@@ -161,7 +162,7 @@ async function handleButtonInteraction(interaction, services) {
   }
 }
 
-async function handleSelectMenuInteraction(interaction, services) {
+async function handleSelectMenuInteraction(interaction) {
   const customId = interaction.customId;
 
   try {
@@ -177,12 +178,12 @@ async function handleSelectMenuInteraction(interaction, services) {
 
     if (customId.startsWith('setup_')) {
       const { handleSetupInteraction } = require('./setupInteractions');
-      await handleSetupInteraction(interaction, services);
+      await handleSetupInteraction(interaction);
     }
     
     else if (customId.startsWith('config_')) {
       const { handleConfigInteraction } = require('./config');
-      await handleConfigInteraction(interaction, services);
+      await handleConfigInteraction(interaction);
     }
     
     else if (customId.startsWith('timezone_select_')) {
@@ -267,7 +268,7 @@ async function handleTimezoneSelect(interaction) {
   });
 }
 
-async function handleModalSubmit(interaction, services) {
+async function handleModalSubmit(interaction) {
   const customId = interaction.customId;
 
   if (!canConfigureBot(interaction.member)) {
@@ -281,7 +282,7 @@ async function handleModalSubmit(interaction, services) {
   try {
     if (customId === 'config_color_modal') {
       const { handleConfigInteraction } = require('./config');
-      await handleConfigInteraction(interaction, services);
+      await handleConfigInteraction(interaction);
     }
   } catch (error) {
     logger.error('Error handling modal submit', {

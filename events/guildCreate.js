@@ -1,15 +1,16 @@
 const logger = require('../utils/logger');
+const serviceLocator = require('../services/serviceLocator');
 
 module.exports = {
   name: 'guildCreate',
-  async execute(guild, services) {
+  async execute(guild) {
     logger.info('Bot added to new guild', {
       guildId: guild.id,
       guildName: guild.name,
       memberCount: guild.memberCount
     });
 
-    const { whitelistManager } = services;
+    const whitelistManager = serviceLocator.get('whitelistManager');
 
     const isWhitelisted = await whitelistManager.isGuildWhitelisted(guild.id);
 

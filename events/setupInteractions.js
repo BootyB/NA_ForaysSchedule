@@ -2,27 +2,28 @@ const { ContainerBuilder, TextDisplayBuilder, StringSelectMenuBuilder, ChannelSe
 const logger = require('../utils/logger');
 const { getAllHostServers, getServerEmoji } = require('../config/hostServers');
 const encryptedDb = require('../config/encryptedDatabase');
+const serviceLocator = require('../services/serviceLocator');
 
 const setupState = new Map();
 
-async function handleSetupInteraction(interaction, services) {
+async function handleSetupInteraction(interaction) {
   const customId = interaction.customId;
 
   if (customId === 'setup_select_raids') {
-    await handleRaidTypeSelection(interaction, services);
+    await handleRaidTypeSelection(interaction);
   } else if (customId.startsWith('setup_retry_channel_')) {
     const raidType = customId.split('_').pop().toUpperCase();
     const state = setupState.get(interaction.user.id) || {};
     const allRaidTypes = state.selectedRaidTypes || [raidType];
-    await showChannelSelection(interaction, services, raidType, allRaidTypes);
+    await showChannelSelection(interaction, raidType, allRaidTypes);
   } else if (customId.startsWith('setup_select_channel_')) {
     const raidType = customId.split('_').pop().toUpperCase();
-    await handleChannelSelection(interaction, services, raidType);
+    await handleChannelSelection(interaction, raidType);
   } else if (customId.startsWith('setup_select_hosts_')) {
     const raidType = customId.split('_').pop().toUpperCase();
-    await handleHostSelection(interaction, services, raidType);
+    await handleHostSelection(interaction, raidType);
   } else if (customId === 'setup_confirm') {
-    await handleSetupConfirmation(interaction, services);
+    await handleSetupConfirmation(interaction);
   } else if (customId === 'setup_cancel') {
     setupState.delete(interaction.user.id);
     
@@ -39,7 +40,7 @@ async function handleSetupInteraction(interaction, services) {
   }
 }
 
-async function handleRaidTypeSelection(interaction, services) {
+async function handleRaidTypeSelection(interaction) {
   const selectedTypes = interaction.values;
   
   const state = setupState.get(interaction.user.id) || {};
@@ -48,10 +49,10 @@ async function handleRaidTypeSelection(interaction, services) {
   state.hosts = {};
   setupState.set(interaction.user.id, state);
 
-  await showChannelSelection(interaction, services, selectedTypes[0], selectedTypes);
+  await showChannelSelection(interaction, selectedTypes[0], selectedTypes);
 }
 
-async function showChannelSelection(interaction, services, currentRaidType, allRaidTypes) {
+async function showChannelSelection(interaction, currentRaidType, allRaidTypes) {
   const container = new ContainerBuilder();
 
   const headerText = 
@@ -173,10 +174,10 @@ async function handleChannelSelection(interaction, services, raidType) {
   state.channels[raidType] = channelId;
   setupState.set(interaction.user.id, state);
 
-  await showHostSelection(interaction, services, raidType);
+  await showHostSelection(interaction, raidType);
 }
 
-async function showHostSelection(interaction, services, raidType) {
+async function showHostSelection(interaction, raidType) {
   const hostServers = getAllHostServers();
   
   const container = new ContainerBuilder();
@@ -220,7 +221,7 @@ async function showHostSelection(interaction, services, raidType) {
   });
 }
 
-async function handleHostSelection(interaction, services, raidType) {
+async function handleHostSelection(interaction, raidType) {
   const selectedHosts = interaction.values;
   const state = setupState.get(interaction.user.id) || {};
   
@@ -245,13 +246,13 @@ async function handleHostSelection(interaction, services, raidType) {
   const nextRaidType = state.selectedRaidTypes[currentIndex + 1];
 
   if (nextRaidType) {
-    await showChannelSelection(interaction, services, nextRaidType, state.selectedRaidTypes);
+    await showChannelSelection(interaction, nextRaidType, state.selectedRaidTypes);
   } else {
-    await showSetupConfirmation(interaction, services);
+    await showSetupConfirmation(interaction);
   }
 }
 
-async function showSetupConfirmation(interaction, services) {
+async function showSetupConfirmation(interaction) {
   const state = setupState.get(interaction.user.id) || {};
   
   const container = new ContainerBuilder();
@@ -294,7 +295,7 @@ async function showSetupConfirmation(interaction, services) {
   });
 }
 
-async function handleSetupConfirmation(interaction, services) {
+async function handleSetupConfirmation(interaction) {
   const state = setupState.get(interaction.user.id);
   if (!state) {
     const container = new ContainerBuilder();
@@ -314,6 +315,7 @@ async function handleSetupConfirmation(interaction, services) {
     await interaction.deferUpdate();
     
     const guildId = interaction.guild.id;
+    const updateManager = serviceLocator.get('updateManager');
 
     let configData;
     
@@ -369,7 +371,7 @@ async function handleSetupConfirmation(interaction, services) {
 
     await encryptedDb.upsertServerConfig(guildId, configData);
 
-    await services.updateManager.forceUpdate(guildId);
+    await updateManager.forceUpdate(guildId);
 
     const returnToConfig = state.returnToConfig;
     setupState.delete(interaction.user.id);

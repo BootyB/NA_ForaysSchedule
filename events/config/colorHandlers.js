@@ -1,11 +1,12 @@
 const { ModalBuilder, TextInputBuilder, TextInputStyle, LabelBuilder } = require('discord.js');
 const logger = require('../../utils/logger');
 const encryptedDb = require('../../config/encryptedDatabase');
+const serviceLocator = require('../../services/serviceLocator');
 
 /**
  * Show the color settings modal
  */
-async function showColorSettingsModal(interaction, services) {
+async function showColorSettingsModal(interaction) {
   const guildId = interaction.guild.id;
 
   const config = await encryptedDb.getServerConfig(guildId) || {};
@@ -68,8 +69,8 @@ async function showColorSettingsModal(interaction, services) {
 /**
  * Save color settings from modal submission
  */
-async function saveColorSettings(interaction, services) {
-  const { updateManager } = services;
+async function saveColorSettings(interaction) {
+  const updateManager = serviceLocator.get('updateManager');
   const guildId = interaction.guild.id;
 
   try {

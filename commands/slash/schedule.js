@@ -2,6 +2,7 @@ const { SlashCommandBuilder, PermissionFlagsBits, MessageFlags, ContainerBuilder
 const logger = require('../../utils/logger');
 const encryptedDb = require('../../config/encryptedDatabase');
 const { buildConfigMenu } = require('../../utils/configMenuBuilder');
+const serviceLocator = require('../../services/serviceLocator');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -9,8 +10,8 @@ module.exports = {
     .setDescription('Manage NA datacenter raid schedule configuration')
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
   
-  async execute(interaction, services) {
-    const { whitelistManager } = services;
+  async execute(interaction) {
+    const whitelistManager = serviceLocator.get('whitelistManager');
     const guildId = interaction.guild.id;
 
     const isWhitelisted = await whitelistManager.isGuildWhitelisted(guildId);
@@ -28,14 +29,14 @@ module.exports = {
     const existingConfig = await encryptedDb.getServerConfig(guildId);
 
     if (!existingConfig || !existingConfig.setup_complete) {
-      await showSetupWizard(interaction, services);
+      await showSetupWizard(interaction);
     } else {
-      await showConfigurationMenu(interaction, services, existingConfig);
+      await showConfigurationMenu(interaction, existingConfig);
     }
   }
 };
 
-async function showSetupWizard(interaction, services) {
+async function showSetupWizard(interaction) {
   const container = new ContainerBuilder();
 
   const headerText = 
@@ -93,7 +94,7 @@ async function showSetupWizard(interaction, services) {
   });
 }
 
-async function showConfigurationMenu(interaction, services, config) {
+async function showConfigurationMenu(interaction, config) {
   const container = buildConfigMenu(config, interaction.guild);
 
   await interaction.reply({

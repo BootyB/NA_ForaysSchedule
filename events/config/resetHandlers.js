@@ -1,11 +1,12 @@
 const { ContainerBuilder, TextDisplayBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder } = require('discord.js');
 const logger = require('../../utils/logger');
 const encryptedDb = require('../../config/encryptedDatabase');
+const serviceLocator = require('../../services/serviceLocator');
 
 /**
  * Show reset confirmation dialog
  */
-async function showResetConfirmation(interaction, services) {
+async function showResetConfirmation(interaction) {
   const container = new ContainerBuilder();
 
   container.addTextDisplayComponents(
@@ -44,7 +45,7 @@ async function showResetConfirmation(interaction, services) {
 /**
  * Execute configuration reset - deletes all messages and config
  */
-async function resetConfiguration(interaction, services) {
+async function resetConfiguration(interaction) {
   const guildId = interaction.guild.id;
 
   try {

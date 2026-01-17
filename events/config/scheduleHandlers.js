@@ -3,11 +3,12 @@ const logger = require('../../utils/logger');
 const encryptedDb = require('../../config/encryptedDatabase');
 const { buildConfigMenu } = require('../../utils/configMenuBuilder');
 const { buildRaidConfigContainer } = require('./menuHandlers');
+const serviceLocator = require('../../services/serviceLocator');
 
 /**
  * Toggle auto-update setting
  */
-async function toggleAutoUpdate(interaction, services) {
+async function toggleAutoUpdate(interaction) {
   const guildId = interaction.guild.id;
 
   try {
@@ -46,13 +47,14 @@ async function toggleAutoUpdate(interaction, services) {
 /**
  * Manually refresh all schedules for a guild
  */
-async function refreshSchedules(interaction, services) {
+async function refreshSchedules(interaction) {
   const guildId = interaction.guild.id;
+  const updateManager = serviceLocator.get('updateManager');
   
   try {
     await interaction.deferUpdate();
     
-    await services.updateManager.forceUpdate(guildId);
+    await updateManager.forceUpdate(guildId);
     
     const successContainer = new ContainerBuilder();
     successContainer.addTextDisplayComponents(
@@ -89,8 +91,9 @@ async function refreshSchedules(interaction, services) {
 /**
  * Regenerate schedule messages for a specific raid type
  */
-async function regenerateRaidSchedule(interaction, services, raidType) {
+async function regenerateRaidSchedule(interaction, raidType) {
   const guildId = interaction.guild.id;
+  const updateManager = serviceLocator.get('updateManager');
   
   try {
     const config = await encryptedDb.getServerConfig(guildId);
@@ -113,9 +116,9 @@ async function regenerateRaidSchedule(interaction, services, raidType) {
     const isSameChannel = interaction.channelId === scheduleChannelId;
 
     if (isSameChannel) {
-      await handleSameChannelRegenerate(interaction, services, guildId, raidType, enabledHosts);
+      await handleSameChannelRegenerate(interaction, updateManager, guildId, raidType, enabledHosts);
     } else {
-      await handleDifferentChannelRegenerate(interaction, services, guildId, raidType, enabledHosts);
+      await handleDifferentChannelRegenerate(interaction, updateManager, guildId, raidType, enabledHosts);
     }
 
   } catch (error) {
@@ -154,11 +157,11 @@ async function regenerateRaidSchedule(interaction, services, raidType) {
  * Since regenerating will delete/recreate messages in this channel, we need
  * to handle the interaction carefully to avoid editing deleted messages.
  */
-async function handleSameChannelRegenerate(interaction, services, guildId, raidType, enabledHosts) {
+async function handleSameChannelRegenerate(interaction, updateManager, guildId, raidType, enabledHosts) {
   // Use deferReply instead of deferUpdate since the original message might get deleted
   await interaction.deferReply({ flags: 64 });
   
-  const result = await services.updateManager.regenerateSchedule(guildId, raidType);
+  const result = await updateManager.regenerateSchedule(guildId, raidType);
   
   if (result.success) {
     logger.info('Raid schedule regenerated', {
@@ -198,7 +201,7 @@ async function handleSameChannelRegenerate(interaction, services, guildId, raidT
 /**
  * Handle regeneration when config menu is in a different channel
  */
-async function handleDifferentChannelRegenerate(interaction, services, guildId, raidType, enabledHosts) {
+async function handleDifferentChannelRegenerate(interaction, updateManager, guildId, raidType, enabledHosts) {
   await interaction.deferUpdate();
 
   // Show building status
@@ -207,7 +210,7 @@ async function handleDifferentChannelRegenerate(interaction, services, guildId, 
     components: [buildingContainer]
   });
 
-  const result = await services.updateManager.regenerateSchedule(guildId, raidType);
+  const result = await updateManager.regenerateSchedule(guildId, raidType);
 
   if (result.success) {
     const successContainer = buildRaidConfigContainer(raidType, enabledHosts, '*✅ Success*');

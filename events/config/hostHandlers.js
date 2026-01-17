@@ -4,11 +4,12 @@ const { getAllHostServers, getServerEmoji } = require('../../config/hostServers'
 const { areValidHostServers } = require('../../utils/validators');
 const encryptedDb = require('../../config/encryptedDatabase');
 const { showRaidConfig } = require('./menuHandlers');
+const serviceLocator = require('../../services/serviceLocator');
 
 /**
  * Show the host server selection menu for a raid type
  */
-async function showHostChangeMenu(interaction, services, raidType) {
+async function showHostChangeMenu(interaction, raidType) {
   const guildId = interaction.guild.id;
 
   const config = await encryptedDb.getServerConfig(guildId);
@@ -68,9 +69,9 @@ async function showHostChangeMenu(interaction, services, raidType) {
 /**
  * Save host server selection changes
  */
-async function saveHostChanges(interaction, services, raidType) {
+async function saveHostChanges(interaction, raidType) {
   const selectedHosts = interaction.values;
-  const { updateManager } = services;
+  const updateManager = serviceLocator.get('updateManager');
   const guildId = interaction.guild.id;
 
   try {
@@ -103,7 +104,7 @@ async function saveHostChanges(interaction, services, raidType) {
       hosts: selectedHosts
     });
 
-    await showRaidConfig(interaction, services, raidType, true);
+    await showRaidConfig(interaction, raidType, true);
 
     // Trigger background update
     updateManager.forceUpdate(guildId).catch(err => {

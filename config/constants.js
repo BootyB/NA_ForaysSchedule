@@ -86,6 +86,12 @@ const RATE_LIMITER = {
 // Default health check port (can be overridden via HEALTH_PORT env var)
 const DEFAULT_HEALTH_PORT = 3000;
 
+// Dev/Prod environment separation
+// Dev bot only handles the dev server, prod bot excludes it
+// Set DEV_SERVER_ID in env to specify which guild is the dev server
+const DEV_SERVER_GUILD_ID = process.env.DEV_SERVER_ID || null;
+const IS_DEV_BOT = process.env.IS_DEV_BOT === 'true';
+
 module.exports = {
   RAID_TYPES,
   RUN_TYPE_PRIORITY,
@@ -98,5 +104,7 @@ module.exports = {
   SPACER_IMAGE_URL,
   CONCURRENCY_LIMIT,
   RATE_LIMITER,
-  DEFAULT_HEALTH_PORT
+  DEFAULT_HEALTH_PORT,
+  DEV_SERVER_GUILD_ID,
+  IS_DEV_BOT
 };

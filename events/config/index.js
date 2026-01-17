@@ -11,6 +11,7 @@
  */
 
 const { isValidRaidType } = require('../../utils/validators');
+const serviceLocator = require('../../services/serviceLocator');
 
 // Import handlers from sub-modules
 const { showMainConfigMenu, showRaidConfig } = require('./menuHandlers');
@@ -23,7 +24,7 @@ const { showColorSettingsModal, saveColorSettings } = require('./colorHandlers')
  * Main router for configuration interactions
  * Routes based on customId prefix to appropriate handler
  */
-async function handleConfigInteraction(interaction, services) {
+async function handleConfigInteraction(interaction) {
   const customId = interaction.customId;
 
   // Raid type selection from main menu
@@ -33,7 +34,7 @@ async function handleConfigInteraction(interaction, services) {
       await interaction.reply({ content: '❌ Invalid raid type.', flags: 64 });
       return;
     }
-    await showRaidConfig(interaction, services, raidType);
+    await showRaidConfig(interaction, raidType);
     return;
   }
 
@@ -44,7 +45,7 @@ async function handleConfigInteraction(interaction, services) {
       await interaction.reply({ content: '❌ Invalid raid type.', flags: 64 });
       return;
     }
-    await showHostChangeMenu(interaction, services, raidType);
+    await showHostChangeMenu(interaction, raidType);
     return;
   }
 
@@ -55,7 +56,7 @@ async function handleConfigInteraction(interaction, services) {
       await interaction.reply({ content: '❌ Invalid raid type.', flags: 64 });
       return;
     }
-    await saveHostChanges(interaction, services, raidType);
+    await saveHostChanges(interaction, raidType);
     return;
   }
 
@@ -66,32 +67,32 @@ async function handleConfigInteraction(interaction, services) {
       await interaction.reply({ content: '❌ Invalid raid type.', flags: 64 });
       return;
     }
-    await regenerateRaidSchedule(interaction, services, raidType);
+    await regenerateRaidSchedule(interaction, raidType);
     return;
   }
 
   // Simple button handlers
   switch (customId) {
     case 'config_toggle_auto_update':
-      await toggleAutoUpdate(interaction, services);
+      await toggleAutoUpdate(interaction);
       break;
     case 'config_refresh_schedules':
-      await refreshSchedules(interaction, services);
+      await refreshSchedules(interaction);
       break;
     case 'config_reset_confirmation':
-      await showResetConfirmation(interaction, services);
+      await showResetConfirmation(interaction);
       break;
     case 'config_reset_confirmed':
-      await resetConfiguration(interaction, services);
+      await resetConfiguration(interaction);
       break;
     case 'config_back':
-      await showMainConfigMenu(interaction, services);
+      await showMainConfigMenu(interaction);
       break;
     case 'config_color_settings':
-      await showColorSettingsModal(interaction, services);
+      await showColorSettingsModal(interaction);
       break;
     case 'config_color_modal':
-      await saveColorSettings(interaction, services);
+      await saveColorSettings(interaction);
       break;
   }
 }

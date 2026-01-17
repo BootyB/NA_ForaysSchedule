@@ -4,7 +4,7 @@ const { AttachmentBuilder } = require('discord.js');
 const EncryptedStateManager = require('./encryptedStateManager');
 const logger = require('../utils/logger');
 const encryptedDb = require('../config/encryptedDatabase');
-const { CONCURRENCY_LIMIT } = require('../config/constants');
+const { CONCURRENCY_LIMIT, DEV_SERVER_GUILD_ID, IS_DEV_BOT } = require('../config/constants');
 const path = require('path');
 const fs = require('fs');
 
@@ -27,9 +27,18 @@ class UpdateManager {
 
   async cleanupOldState() {
     try {
-      const activeGuilds = await encryptedDb.getActiveServerConfigs(
+      let activeGuilds = await encryptedDb.getActiveServerConfigs(
         'WHERE setup_complete = 1'
       );
+      
+      // Filter based on dev/prod environment
+      activeGuilds = activeGuilds.filter(g => {
+        if (IS_DEV_BOT) {
+          return g.guild_id === DEV_SERVER_GUILD_ID;
+        } else {
+          return g.guild_id !== DEV_SERVER_GUILD_ID;
+        }
+      });
       
       const activeGuildIds = new Set(activeGuilds.map(g => g.guild_id));
       await this.stateManager.cleanupOldState(activeGuildIds);
@@ -307,11 +316,25 @@ class UpdateManager {
   async updateAllSchedules() {
     try {
       const startTime = Date.now();
-      const configs = await encryptedDb.getActiveServerConfigs(
+      let configs = await encryptedDb.getActiveServerConfigs(
         'WHERE setup_complete = 1 AND auto_update = 1'
       );
 
-      logger.debug('Starting update cycle', { configCount: configs.length });
+      // Filter configs based on dev/prod environment
+      // Dev bot: only process dev server
+      // Prod bot: exclude dev server
+      configs = configs.filter(config => {
+        if (IS_DEV_BOT) {
+          return config.guild_id === DEV_SERVER_GUILD_ID;
+        } else {
+          return config.guild_id !== DEV_SERVER_GUILD_ID;
+        }
+      });
+
+      logger.debug('Starting update cycle', { 
+        configCount: configs.length,
+        isDevBot: IS_DEV_BOT 
+      });
 
       // Process configs in batches
       const results = [];
@@ -363,6 +386,17 @@ class UpdateManager {
 
   async forceUpdate(guildId) {
     try {
+      // Validate dev/prod environment access
+      const isDevServer = guildId === DEV_SERVER_GUILD_ID;
+      if (IS_DEV_BOT && !isDevServer) {
+        logger.debug('Dev bot skipping non-dev server', { guildId });
+        return { success: false, error: 'Dev bot cannot update non-dev servers' };
+      }
+      if (!IS_DEV_BOT && isDevServer) {
+        logger.debug('Prod bot skipping dev server', { guildId });
+        return { success: false, error: 'Prod bot cannot update dev server' };
+      }
+
       const config = await encryptedDb.getServerConfig(guildId);
 
       if (!config) {
@@ -392,6 +426,15 @@ class UpdateManager {
 
   async regenerateSchedule(guildId, raidType) {
     try {
+      // Validate dev/prod environment access
+      const isDevServer = guildId === DEV_SERVER_GUILD_ID;
+      if (IS_DEV_BOT && !isDevServer) {
+        return { success: false, error: 'Dev bot cannot update non-dev servers' };
+      }
+      if (!IS_DEV_BOT && isDevServer) {
+        return { success: false, error: 'Prod bot cannot update dev server' };
+      }
+
       const config = await encryptedDb.getServerConfig(guildId);
 
       if (!config) {
