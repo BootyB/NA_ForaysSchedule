@@ -1,4 +1,5 @@
 const logger = require('./logger');
+const { RATE_LIMITER } = require('../config/constants');
 
 class RateLimiter {
   constructor() {
@@ -7,17 +8,17 @@ class RateLimiter {
     // Track interaction usage per user
     this.userInteractionCooldowns = new Map();
     
-    // Cooldown durations in milliseconds
-    this.COMMAND_COOLDOWN = 3000; // 3 seconds between commands
-    this.INTERACTION_COOLDOWN = 1000; // 1 second between interactions
+    // Cooldown durations from constants
+    this.COMMAND_COOLDOWN = RATE_LIMITER.COMMAND_COOLDOWN;
+    this.INTERACTION_COOLDOWN = RATE_LIMITER.INTERACTION_COOLDOWN;
     
     // Maximum requests tracking
     this.userRequestCounts = new Map();
-    this.REQUEST_WINDOW = 60000; // 1 minute window
-    this.MAX_REQUESTS_PER_WINDOW = 30; // Max 30 requests per minute
+    this.REQUEST_WINDOW = RATE_LIMITER.REQUEST_WINDOW;
+    this.MAX_REQUESTS_PER_WINDOW = RATE_LIMITER.MAX_REQUESTS_PER_WINDOW;
     
-    // Cleanup old entries every 5 minutes
-    setInterval(() => this.cleanup(), 300000);
+    // Cleanup old entries periodically
+    setInterval(() => this.cleanup(), RATE_LIMITER.CLEANUP_INTERVAL);
   }
 
   /**

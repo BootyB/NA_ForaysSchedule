@@ -1,12 +1,14 @@
 const http = require('http');
 const logger = require('../utils/logger');
+const { DEFAULT_HEALTH_PORT } = require('../config/constants');
 
 class HealthCheck {
   constructor(client, pool) {
     this.client = client;
     this.pool = pool;
     this.server = null;
-    this.port = parseInt(process.env.HEALTH_PORT) || 3000;
+    // Port can be overridden via HEALTH_PORT environment variable
+    this.port = parseInt(process.env.HEALTH_PORT) || DEFAULT_HEALTH_PORT;
   }
 
   start() {

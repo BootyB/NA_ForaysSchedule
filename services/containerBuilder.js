@@ -1,5 +1,5 @@
 const { ContainerBuilder, TextDisplayBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder, SeparatorBuilder, SeparatorSpacingSize, StringSelectMenuBuilder, SectionBuilder, ThumbnailBuilder } = require('discord.js');
-const { RAID_TYPES, MAX_COMPONENTS_PER_CONTAINER, RUN_TYPE_PRIORITY } = require('../config/constants');
+const { RAID_TYPES, MAX_COMPONENTS_PER_CONTAINER, RUN_TYPE_PRIORITY, BANNER_IMAGES, SPACER_IMAGE_URL } = require('../config/constants');
 const { getServerIcon, getInviteLink, getChannelLink, getGuildStats } = require('../config/hostServers');
 const { hashCodeSchedules } = require('../utils/hashCode');
 const logger = require('../utils/logger');
@@ -60,32 +60,26 @@ class ScheduleContainerBuilder {
 
     const links = calendarLinks[raidType];
 
-    const bannerImages = {
-      BA: 'attachment://ba_opening.avif',
-      DRS: 'attachment://drs_opening.avif',
-      FT: 'attachment://ft_opening.avif'
-    };
-
     let headerContent = '';
     
     if (raidType === 'BA') {
       container.addMediaGalleryComponents(
         new MediaGalleryBuilder().addItems(
-          new MediaGalleryItemBuilder().setURL(bannerImages.BA)
+          new MediaGalleryItemBuilder().setURL(BANNER_IMAGES.BA)
         )
       );
       headerContent = `### Multi-Server *Baldesion Arsenal* Schedule for North American and Materia Data Centers\n`;
     } else if (raidType === 'DRS') {
       container.addMediaGalleryComponents(
         new MediaGalleryBuilder().addItems(
-          new MediaGalleryItemBuilder().setURL(bannerImages.DRS)
+          new MediaGalleryItemBuilder().setURL(BANNER_IMAGES.DRS)
         )
       );
       headerContent = `### Multi-Server *Delubrum Reginae Savage* Schedule for North American and Materia Data Centers\n`;
     } else if (raidType === 'FT') {
       container.addMediaGalleryComponents(
         new MediaGalleryBuilder().addItems(
-          new MediaGalleryItemBuilder().setURL(bannerImages.FT)
+          new MediaGalleryItemBuilder().setURL(BANNER_IMAGES.FT)
         )
       );
       headerContent = `### Multi-Server *Forked Tower* Schedule for North American and Materia Data Centers\n`;
@@ -273,7 +267,7 @@ class ScheduleContainerBuilder {
 
     container.addMediaGalleryComponents(
       new MediaGalleryBuilder().addItems(
-        new MediaGalleryItemBuilder().setURL('https://i.imgur.com/ZfizSs7.png')
+        new MediaGalleryItemBuilder().setURL(SPACER_IMAGE_URL)
       )
     );
 

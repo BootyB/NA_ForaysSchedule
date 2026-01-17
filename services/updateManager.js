@@ -4,6 +4,7 @@ const { AttachmentBuilder } = require('discord.js');
 const EncryptedStateManager = require('./encryptedStateManager');
 const logger = require('../utils/logger');
 const encryptedDb = require('../config/encryptedDatabase');
+const { CONCURRENCY_LIMIT } = require('../config/constants');
 const path = require('path');
 const fs = require('fs');
 
@@ -312,7 +313,7 @@ class UpdateManager {
 
       logger.debug('Starting update cycle', { configCount: configs.length });
 
-      const CONCURRENCY_LIMIT = 3;
+      // Process configs in batches
       const results = [];
       
       for (let i = 0; i < configs.length; i += CONCURRENCY_LIMIT) {

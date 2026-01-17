@@ -61,6 +61,31 @@ const GOOGLE_CALENDAR_IDS = {
 const MAX_COMPONENTS_PER_CONTAINER = 40;
 const MAX_TEXT_LENGTH = 4000;
 
+// Banner images for raid type headers
+const BANNER_IMAGES = {
+  BA: 'attachment://ba_opening.avif',
+  DRS: 'attachment://drs_opening.avif',
+  FT: 'attachment://ft_opening.avif'
+};
+
+// Spacer image URL for container sections
+const SPACER_IMAGE_URL = 'https://i.imgur.com/ZfizSs7.png';
+
+// Concurrency limit for batch updates
+const CONCURRENCY_LIMIT = parseInt(process.env.CONCURRENCY_LIMIT) || 3;
+
+// Rate limiter configuration
+const RATE_LIMITER = {
+  COMMAND_COOLDOWN: 3000,       // 3 seconds between commands
+  INTERACTION_COOLDOWN: 1000,   // 1 second between interactions
+  REQUEST_WINDOW: 60000,        // 1 minute window
+  MAX_REQUESTS_PER_WINDOW: 30,  // Max 30 requests per minute
+  CLEANUP_INTERVAL: 300000      // Cleanup every 5 minutes
+};
+
+// Default health check port (can be overridden via HEALTH_PORT env var)
+const DEFAULT_HEALTH_PORT = 3000;
+
 module.exports = {
   RAID_TYPES,
   RUN_TYPE_PRIORITY,
@@ -68,5 +93,10 @@ module.exports = {
   SCHEDULE_DAYS_AHEAD,
   GOOGLE_CALENDAR_IDS,
   MAX_COMPONENTS_PER_CONTAINER,
-  MAX_TEXT_LENGTH
+  MAX_TEXT_LENGTH,
+  BANNER_IMAGES,
+  SPACER_IMAGE_URL,
+  CONCURRENCY_LIMIT,
+  RATE_LIMITER,
+  DEFAULT_HEALTH_PORT
 };
