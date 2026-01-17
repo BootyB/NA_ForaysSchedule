@@ -22,8 +22,6 @@ class UpdateManager {
     this.state = this.stateManager.state;
     
     await this.cleanupOldState();
-    
-    logger.info('Loaded encrypted schedule state', { stateKeys: Object.keys(this.state).length });
   }
 
   async cleanupOldState() {
