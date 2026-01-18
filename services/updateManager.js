@@ -228,9 +228,14 @@ class UpdateManager {
       }
 
       const newMessageIds = [];
+      const oldServerHashes = oldState.serverHashes || {};
+      const newServerHashes = {};
+      let updatedCount = 0;
+      let skippedCount = 0;
 
       for (let i = 0; i < containers.length; i++) {
-        const container = containers[i];
+        const { container, serverName, hash } = containers[i];
+        newServerHashes[serverName] = hash;
         
         try {
           if (existingMessageIds[i]) {
@@ -241,36 +246,52 @@ class UpdateManager {
                   guildId, 
                   raidType,
                   messageIndex: i,
+                  serverName,
                   messageAuthor: message.author.id,
                   botId: channel.client.user.id
                 });
                 const newMessage = await channel.send({ components: [container.toJSON()], flags: 1 << 15 });
                 newMessageIds.push(newMessage.id);
+                updatedCount++;
               } else {
-                await message.edit({ components: [container.toJSON()], flags: 1 << 15 });
-                newMessageIds.push(message.id);
-                logger.debug('Updated schedule message', { guildId, raidType, messageIndex: i });
+                // Check if this specific server's content changed
+                const oldHash = oldServerHashes[serverName];
+                if (oldHash === hash) {
+                  // Content unchanged, skip editing
+                  newMessageIds.push(message.id);
+                  skippedCount++;
+                  logger.debug('Server unchanged, skipping edit', { guildId, raidType, serverName, messageIndex: i });
+                } else {
+                  await message.edit({ components: [container.toJSON()], flags: 1 << 15 });
+                  newMessageIds.push(message.id);
+                  updatedCount++;
+                  logger.debug('Updated schedule message', { guildId, raidType, serverName, messageIndex: i });
+                }
               }
             } else {
               logger.warn('Schedule message not found, creating new', { 
                 guildId, 
                 raidType, 
                 messageIndex: i,
+                serverName,
                 oldMessageId: existingMessageIds[i]
               });
               const newMessage = await channel.send({ components: [container.toJSON()], flags: 1 << 15 });
               newMessageIds.push(newMessage.id);
+              updatedCount++;
             }
           } else {
             const newMessage = await channel.send({ components: [container.toJSON()], flags: 1 << 15 });
             newMessageIds.push(newMessage.id);
-            logger.debug('Created new schedule message', { guildId, raidType, messageIndex: i });
+            updatedCount++;
+            logger.debug('Created new schedule message', { guildId, raidType, serverName, messageIndex: i });
           }
         } catch (error) {
           logger.error('Error updating container message', {
             error: error.message,
             guildId,
             raidType,
+            serverName,
             messageIndex: i
           });
         }
@@ -320,10 +341,11 @@ class UpdateManager {
 
       this.state[stateKey] = {
         hash: newHash,
+        serverHashes: newServerHashes,
         lastUpdate: Date.now(),
         messageCount: newMessageIds.length
       };
-      logger.debug('Saving state hash', { guildId, raidType, stateKey, hash: newHash });
+      logger.debug('Saving state hash', { guildId, raidType, stateKey, hash: newHash, serverCount: Object.keys(newServerHashes).length });
       await this.saveState();
 
       const duration = ((Date.now() - startTime) / 1000).toFixed(2);
@@ -331,6 +353,8 @@ class UpdateManager {
         guildId,
         raidType,
         containers: containers.length,
+        updated: updatedCount,
+        skipped: skippedCount,
         runsCount: Object.values(groupedRuns).flat().length,
         duration: `${duration}s`
       });

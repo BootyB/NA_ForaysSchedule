@@ -156,7 +156,11 @@ class ScheduleContainerBuilder {
     const containers = [];
 
     if (!groupedRuns || Object.keys(groupedRuns).length === 0) {
-      containers.push(this.buildEmptyContainer(raidType, customColor));
+      containers.push({
+        container: this.buildEmptyContainer(raidType, customColor),
+        serverName: '__empty__',
+        hash: this.generateServerHash('__empty__', [])
+      });
       return containers;
     }
 
@@ -164,7 +168,12 @@ class ScheduleContainerBuilder {
     for (const serverName in groupedRuns) {
       const runs = groupedRuns[serverName];
       const container = await this.buildServerContainer(serverName, runs, raidType, isFirst, customColor);
-      containers.push(container);
+      const hash = this.generateServerHash(serverName, runs);
+      containers.push({
+        container,
+        serverName,
+        hash
+      });
       isFirst = false;
     }
 
@@ -338,6 +347,18 @@ class ScheduleContainerBuilder {
       }
     }
     
+    return hashCodeSchedules(contentString);
+  }
+
+  /**
+   * Generate a hash for a single server's runs
+   * Used for per-container change detection
+   */
+  generateServerHash(serverName, runs) {
+    let contentString = `${serverName}:`;
+    for (const run of runs) {
+      contentString += `${run.ID}|${run.Type}|${run.Start}|`;
+    }
     return hashCodeSchedules(contentString);
   }
 
