@@ -38,6 +38,16 @@ async function handleConfigInteraction(interaction) {
     return;
   }
 
+  if (customId.startsWith('config_back_to_raid_')) {
+    const raidType = extractRaidType(customId);
+    if (!isValidRaidType(raidType)) {
+      await interaction.reply({ content: '❌ Invalid raid type.', flags: 64 });
+      return;
+    }
+    await showRaidConfig(interaction, raidType);
+    return;
+  }
+
   // Host server change menu
   if (customId.startsWith('config_change_hosts_')) {
     const raidType = extractRaidType(customId);

@@ -87,7 +87,7 @@ async function showChannelSelection(interaction, currentRaidType, allRaidTypes) 
   });
 }
 
-async function handleChannelSelection(interaction, services, raidType) {
+async function handleChannelSelection(interaction, raidType) {
   const channelId = interaction.values[0];
   const channel = interaction.guild.channels.cache.get(channelId);
   

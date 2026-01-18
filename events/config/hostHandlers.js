@@ -53,7 +53,7 @@ async function showHostChangeMenu(interaction, raidType) {
   );
 
   const cancelButton = new ButtonBuilder()
-    .setCustomId('config_back')
+    .setCustomId(`config_back_to_raid_${raidType.toLowerCase()}`)
     .setLabel('Cancel')
     .setStyle(ButtonStyle.Secondary);
 

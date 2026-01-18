@@ -6,9 +6,6 @@ const { buildRaidConfigContainer } = require('./menuHandlers');
 const serviceLocator = require('../../services/serviceLocator');
 const { getScheduleChannelKey, getEnabledHostsKey } = require('../../utils/raidTypes');
 
-/**
- * Toggle auto-update setting
- */
 async function toggleAutoUpdate(interaction) {
   const guildId = interaction.guild.id;
 
@@ -45,9 +42,6 @@ async function toggleAutoUpdate(interaction) {
   }
 }
 
-/**
- * Manually refresh all schedules for a guild
- */
 async function refreshSchedules(interaction) {
   const guildId = interaction.guild.id;
   const updateManager = serviceLocator.get('updateManager');
@@ -89,9 +83,6 @@ async function refreshSchedules(interaction) {
   }
 }
 
-/**
- * Regenerate schedule messages for a specific raid type
- */
 async function regenerateRaidSchedule(interaction, raidType) {
   const guildId = interaction.guild.id;
   const updateManager = serviceLocator.get('updateManager');
@@ -153,28 +144,14 @@ async function regenerateRaidSchedule(interaction, raidType) {
   }
 }
 
-/**
- * Handle regeneration when config menu is in the same channel as schedule
- * Since regenerating will delete/recreate messages in this channel, we need
- * to handle the interaction carefully to avoid editing deleted messages.
- * 
- * Flow: 
- * 1. Acknowledge interaction (deferUpdate keeps original message temporarily)
- * 2. Regenerate schedule (deletes old messages, creates new ones)
- * 3. Delete the original config ephemeral
- * 4. Create new ephemeral at bottom with success/config container
- */
 async function handleSameChannelRegenerate(interaction, updateManager, guildId, raidType, enabledHosts) {
-  // Acknowledge without creating new message - we'll followUp after regeneration
   await interaction.deferUpdate();
   
   const result = await updateManager.regenerateSchedule(guildId, raidType);
   
-  // Delete the original config ephemeral
   try {
     await interaction.deleteReply();
   } catch (error) {
-    // May already be gone, that's fine
     logger.debug('Could not delete original reply', { error: error.message });
   }
   
@@ -185,19 +162,16 @@ async function handleSameChannelRegenerate(interaction, updateManager, guildId, 
       user: interaction.user.tag
     });
 
-    // Create success container (v2 components can't use content field)
     const successContainer = new ContainerBuilder();
     successContainer.addTextDisplayComponents(
       new TextDisplayBuilder().setContent(`✅ ${raidType} schedule regenerated successfully!\n-# Returning to configuration...`)
     );
 
-    // Create new ephemeral at bottom with success message
     const successMessage = await interaction.followUp({
       components: [successContainer],
       flags: 64 | (1 << 15)
     });
 
-    // After delay, update to show config container using webhook
     setTimeout(async () => {
       try {
         const container = buildRaidConfigContainer(raidType, enabledHosts);
@@ -214,7 +188,6 @@ async function handleSameChannelRegenerate(interaction, updateManager, guildId, 
       }
     }, 3000);
   } else {
-    // Error message - use plain ephemeral (no v2 flag needed for text-only)
     await interaction.followUp({
       content: `❌ Error regenerating ${raidType} schedule: ${result.error}`,
       flags: 64
@@ -222,13 +195,9 @@ async function handleSameChannelRegenerate(interaction, updateManager, guildId, 
   }
 }
 
-/**
- * Handle regeneration when config menu is in a different channel
- */
 async function handleDifferentChannelRegenerate(interaction, updateManager, guildId, raidType, enabledHosts) {
   await interaction.deferUpdate();
 
-  // Show building status
   const buildingContainer = buildRaidConfigContainer(raidType, enabledHosts, '*Building...*');
   await interaction.editReply({
     components: [buildingContainer],
@@ -249,23 +218,6 @@ async function handleDifferentChannelRegenerate(interaction, updateManager, guil
       raidType,
       user: interaction.user.tag
     });
-
-    // Remove status after delay
-    setTimeout(async () => {
-      try {
-        const finalContainer = buildRaidConfigContainer(raidType, enabledHosts);
-        await interaction.editReply({
-          components: [finalContainer],
-          flags: 1 << 15
-        });
-      } catch (error) {
-        logger.error('Error removing status line', {
-          error: error.message,
-          guildId,
-          raidType
-        });
-      }
-    }, 3000);
   } else {
     const errorContainer = buildRaidConfigContainer(raidType, enabledHosts, `*❌ Error: ${result.error}*`);
     await interaction.editReply({
@@ -273,7 +225,6 @@ async function handleDifferentChannelRegenerate(interaction, updateManager, guil
       flags: 1 << 15
     });
 
-    // Remove error status after delay
     setTimeout(async () => {
       try {
         const finalContainer = buildRaidConfigContainer(raidType, enabledHosts);

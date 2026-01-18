@@ -493,11 +493,6 @@ class UpdateManager {
       }
 
       for (const raidType of ALL_RAID_TYPES) {
-        const stateKey = `${guildId}_${raidType}`;
-        delete this.state[stateKey];
-      }
-
-      for (const raidType of ALL_RAID_TYPES) {
         await this.updateSchedule(config.guild_id, raidType, config);
       }
 
