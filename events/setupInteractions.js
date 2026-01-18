@@ -3,6 +3,7 @@ const logger = require('../utils/logger');
 const { getAllHostServers, getServerEmoji } = require('../config/hostServers');
 const encryptedDb = require('../config/encryptedDatabase');
 const serviceLocator = require('../services/serviceLocator');
+const { getScheduleChannelKey, getEnabledHostsKey } = require('../utils/raidTypes');
 
 const setupState = new Map();
 
@@ -344,8 +345,8 @@ async function handleSetupConfirmation(interaction) {
       };
       
       for (const raidType of state.selectedRaidTypes) {
-        const channelKey = `schedule_channel_${raidType.toLowerCase()}`;
-        const hostsKey = `enabled_hosts_${raidType.toLowerCase()}`;
+        const channelKey = getScheduleChannelKey(raidType);
+        const hostsKey = getEnabledHostsKey(raidType);
         
         configData[channelKey] = state.channels[raidType];
         configData[hostsKey] = state.hosts[raidType];
@@ -361,8 +362,8 @@ async function handleSetupConfirmation(interaction) {
       };
 
       for (const raidType of state.selectedRaidTypes) {
-        const channelKey = `schedule_channel_${raidType.toLowerCase()}`;
-        const hostsKey = `enabled_hosts_${raidType.toLowerCase()}`;
+        const channelKey = getScheduleChannelKey(raidType);
+        const hostsKey = getEnabledHostsKey(raidType);
         
         configData[channelKey] = state.channels[raidType];
         configData[hostsKey] = state.hosts[raidType];

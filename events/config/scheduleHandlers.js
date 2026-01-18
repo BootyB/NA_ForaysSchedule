@@ -4,6 +4,7 @@ const encryptedDb = require('../../config/encryptedDatabase');
 const { buildConfigMenu } = require('../../utils/configMenuBuilder');
 const { buildRaidConfigContainer } = require('./menuHandlers');
 const serviceLocator = require('../../services/serviceLocator');
+const { getScheduleChannelKey, getEnabledHostsKey } = require('../../utils/raidTypes');
 
 /**
  * Toggle auto-update setting
@@ -109,8 +110,8 @@ async function regenerateRaidSchedule(interaction, raidType) {
       return;
     }
 
-    const channelKey = `schedule_channel_${raidType.toLowerCase()}`;
-    const hostsKey = `enabled_hosts_${raidType.toLowerCase()}`;
+    const channelKey = getScheduleChannelKey(raidType);
+    const hostsKey = getEnabledHostsKey(raidType);
     const scheduleChannelId = config[channelKey];
     const enabledHosts = config[hostsKey] || [];
     const isSameChannel = interaction.channelId === scheduleChannelId;
@@ -156,12 +157,26 @@ async function regenerateRaidSchedule(interaction, raidType) {
  * Handle regeneration when config menu is in the same channel as schedule
  * Since regenerating will delete/recreate messages in this channel, we need
  * to handle the interaction carefully to avoid editing deleted messages.
+ * 
+ * Flow: 
+ * 1. Acknowledge interaction (deferUpdate keeps original message temporarily)
+ * 2. Regenerate schedule (deletes old messages, creates new ones)
+ * 3. Delete the original config ephemeral
+ * 4. Create new ephemeral at bottom with success/config container
  */
 async function handleSameChannelRegenerate(interaction, updateManager, guildId, raidType, enabledHosts) {
-  // Use deferReply instead of deferUpdate since the original message might get deleted
-  await interaction.deferReply({ flags: 64 });
+  // Acknowledge without creating new message - we'll followUp after regeneration
+  await interaction.deferUpdate();
   
   const result = await updateManager.regenerateSchedule(guildId, raidType);
+  
+  // Delete the original config ephemeral
+  try {
+    await interaction.deleteReply();
+  } catch (error) {
+    // May already be gone, that's fine
+    logger.debug('Could not delete original reply', { error: error.message });
+  }
   
   if (result.success) {
     logger.info('Raid schedule regenerated', {
@@ -170,18 +185,25 @@ async function handleSameChannelRegenerate(interaction, updateManager, guildId, 
       user: interaction.user.tag
     });
 
-    // Show success then transition to config
-    await interaction.editReply({
-      content: `✅ ${raidType} schedule regenerated successfully!`
+    // Create success container (v2 components can't use content field)
+    const successContainer = new ContainerBuilder();
+    successContainer.addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(`✅ ${raidType} schedule regenerated successfully!\n-# Returning to configuration...`)
+    );
+
+    // Create new ephemeral at bottom with success message
+    const successMessage = await interaction.followUp({
+      components: [successContainer],
+      flags: 64 | (1 << 15)
     });
 
-    // After delay, show raid config container
+    // After delay, update to show config container using webhook
     setTimeout(async () => {
       try {
         const container = buildRaidConfigContainer(raidType, enabledHosts);
-        await interaction.editReply({
-          content: null,
-          components: [container]
+        await interaction.webhook.editMessage(successMessage.id, {
+          components: [container],
+          flags: 1 << 15
         });
       } catch (error) {
         logger.error('Error updating success message to config', {
@@ -192,8 +214,10 @@ async function handleSameChannelRegenerate(interaction, updateManager, guildId, 
       }
     }, 3000);
   } else {
-    await interaction.editReply({
-      content: `❌ Error regenerating ${raidType} schedule: ${result.error}`
+    // Error message - use plain ephemeral (no v2 flag needed for text-only)
+    await interaction.followUp({
+      content: `❌ Error regenerating ${raidType} schedule: ${result.error}`,
+      flags: 64
     });
   }
 }
@@ -207,7 +231,8 @@ async function handleDifferentChannelRegenerate(interaction, updateManager, guil
   // Show building status
   const buildingContainer = buildRaidConfigContainer(raidType, enabledHosts, '*Building...*');
   await interaction.editReply({
-    components: [buildingContainer]
+    components: [buildingContainer],
+    flags: 1 << 15
   });
 
   const result = await updateManager.regenerateSchedule(guildId, raidType);
@@ -215,7 +240,8 @@ async function handleDifferentChannelRegenerate(interaction, updateManager, guil
   if (result.success) {
     const successContainer = buildRaidConfigContainer(raidType, enabledHosts, '*✅ Success*');
     await interaction.editReply({
-      components: [successContainer]
+      components: [successContainer],
+      flags: 1 << 15
     });
 
     logger.info('Raid schedule regenerated', {
@@ -229,7 +255,8 @@ async function handleDifferentChannelRegenerate(interaction, updateManager, guil
       try {
         const finalContainer = buildRaidConfigContainer(raidType, enabledHosts);
         await interaction.editReply({
-          components: [finalContainer]
+          components: [finalContainer],
+          flags: 1 << 15
         });
       } catch (error) {
         logger.error('Error removing status line', {
@@ -242,7 +269,8 @@ async function handleDifferentChannelRegenerate(interaction, updateManager, guil
   } else {
     const errorContainer = buildRaidConfigContainer(raidType, enabledHosts, `*❌ Error: ${result.error}*`);
     await interaction.editReply({
-      components: [errorContainer]
+      components: [errorContainer],
+      flags: 1 << 15
     });
 
     // Remove error status after delay
@@ -250,7 +278,8 @@ async function handleDifferentChannelRegenerate(interaction, updateManager, guil
       try {
         const finalContainer = buildRaidConfigContainer(raidType, enabledHosts);
         await interaction.editReply({
-          components: [finalContainer]
+          components: [finalContainer],
+          flags: 1 << 15
         });
       } catch (error) {
         logger.error('Error removing error line', {

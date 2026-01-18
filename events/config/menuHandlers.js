@@ -5,6 +5,7 @@ const encryptedDb = require('../../config/encryptedDatabase');
 const { buildConfigMenu } = require('../../utils/configMenuBuilder');
 const { showChannelSelection, setupState } = require('../setupInteractions');
 const serviceLocator = require('../../services/serviceLocator');
+const { getScheduleChannelKey, getEnabledHostsKey } = require('../../utils/raidTypes');
 
 /**
  * Show the main configuration menu
@@ -59,8 +60,8 @@ async function showRaidConfig(interaction, raidType, useEditReply = false) {
     return;
   }
 
-  const channelKey = `schedule_channel_${raidType.toLowerCase()}`;
-  const hostsKey = `enabled_hosts_${raidType.toLowerCase()}`;
+  const channelKey = getScheduleChannelKey(raidType);
+  const hostsKey = getEnabledHostsKey(raidType);
   
   // If raid type not configured, start setup flow
   if (!config[channelKey] || !config[hostsKey]) {

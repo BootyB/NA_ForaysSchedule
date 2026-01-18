@@ -5,6 +5,7 @@ const { areValidHostServers } = require('../../utils/validators');
 const encryptedDb = require('../../config/encryptedDatabase');
 const { showRaidConfig } = require('./menuHandlers');
 const serviceLocator = require('../../services/serviceLocator');
+const { getEnabledHostsKey } = require('../../utils/raidTypes');
 
 /**
  * Show the host server selection menu for a raid type
@@ -13,7 +14,7 @@ async function showHostChangeMenu(interaction, raidType) {
   const guildId = interaction.guild.id;
 
   const config = await encryptedDb.getServerConfig(guildId);
-  const hostsKey = `enabled_hosts_${raidType.toLowerCase()}`;
+  const hostsKey = getEnabledHostsKey(raidType);
   const currentHosts = config[hostsKey] || [];
   const allHosts = getAllHostServers();
 
@@ -92,7 +93,7 @@ async function saveHostChanges(interaction, raidType) {
       return;
     }
 
-    const hostsKey = `enabled_hosts_${raidType.toLowerCase()}`;
+    const hostsKey = getEnabledHostsKey(raidType);
     
     await encryptedDb.updateServerConfig(guildId, {
       [hostsKey]: selectedHosts

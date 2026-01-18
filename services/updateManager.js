@@ -5,6 +5,14 @@ const EncryptedStateManager = require('./encryptedStateManager');
 const logger = require('../utils/logger');
 const encryptedDb = require('../config/encryptedDatabase');
 const { CONCURRENCY_LIMIT, DEV_SERVER_GUILD_ID, IS_DEV_BOT } = require('../config/constants');
+const { 
+  ALL_RAID_TYPES, 
+  getEnabledHostsKey, 
+  getScheduleColorKey, 
+  getScheduleChannelKey, 
+  getScheduleMessageKey, 
+  getScheduleOverviewKey 
+} = require('../utils/raidTypes');
 const path = require('path');
 const fs = require('fs');
 
@@ -74,7 +82,7 @@ class UpdateManager {
       logger.debug('Starting updateSchedule', { guildId, raidType });
       const stateKey = `${guildId}_${raidType}`;
       
-      const hostsKey = `enabled_hosts_${raidType.toLowerCase()}`;
+      const hostsKey = getEnabledHostsKey(raidType);
       const enabledHosts = config[hostsKey];
       
       logger.debug('Enabled hosts check', { guildId, raidType, hostsKey, enabledHosts });
@@ -96,18 +104,28 @@ class UpdateManager {
       const newHash = this.containerBuilder.generateContentHash(groupedRuns, raidType);
 
       const oldState = this.state[stateKey] || {};
+      logger.debug('Hash comparison', { 
+        guildId, 
+        raidType, 
+        stateKey,
+        oldHash: oldState.hash || 'none',
+        newHash,
+        hashMatch: oldState.hash === newHash,
+        runsCount: Object.values(groupedRuns).flat().length
+      });
+      
       if (oldState.hash === newHash) {
         logger.debug('Schedule unchanged, skipping update', { guildId, raidType });
         return;
       }
 
-      const colorKey = `schedule_color_${raidType.toLowerCase()}`;
+      const colorKey = getScheduleColorKey(raidType);
       const colorValue = config[colorKey];
       const customColor = colorValue === -1 ? undefined : (colorValue !== undefined ? colorValue : undefined);
 
       const containers = await this.containerBuilder.buildScheduleContainers(groupedRuns, raidType, customColor);
       
-      const channelKey = `schedule_channel_${raidType.toLowerCase()}`;
+      const channelKey = getScheduleChannelKey(raidType);
       const channelId = config[channelKey];
       
       if (!channelId) {
@@ -120,8 +138,8 @@ class UpdateManager {
         return;
       }
 
-      const messageKey = `schedule_message_${raidType.toLowerCase()}`;
-      const overviewMessageKey = `schedule_overview_${raidType.toLowerCase()}`;
+      const messageKey = getScheduleMessageKey(raidType);
+      const overviewMessageKey = getScheduleOverviewKey(raidType);
       const existingMessageIds = config[messageKey] || [];
       const existingOverviewId = config[overviewMessageKey];
 
@@ -234,9 +252,14 @@ class UpdateManager {
                 logger.debug('Updated schedule message', { guildId, raidType, messageIndex: i });
               }
             } else {
+              logger.warn('Schedule message not found, creating new', { 
+                guildId, 
+                raidType, 
+                messageIndex: i,
+                oldMessageId: existingMessageIds[i]
+              });
               const newMessage = await channel.send({ components: [container.toJSON()], flags: 1 << 15 });
               newMessageIds.push(newMessage.id);
-              logger.debug('Created new schedule message (old not found)', { guildId, raidType, messageIndex: i });
             }
           } else {
             const newMessage = await channel.send({ components: [container.toJSON()], flags: 1 << 15 });
@@ -255,10 +278,18 @@ class UpdateManager {
 
       for (let i = containers.length; i < existingMessageIds.length; i++) {
         try {
+          logger.info('Deleting extra schedule message', { 
+            guildId, 
+            raidType, 
+            messageIndex: i,
+            messageId: existingMessageIds[i],
+            containersLength: containers.length,
+            existingMessageIdsLength: existingMessageIds.length
+          });
           const message = await channel.messages.fetch(existingMessageIds[i]).catch(() => null);
           if (message) {
             await message.delete();
-            logger.debug('Deleted extra schedule message', { guildId, raidType, messageIndex: i });
+            logger.info('Deleted extra schedule message', { guildId, raidType, messageIndex: i });
           }
         } catch (error) {
           logger.error('Error deleting extra message', { error: error.message });
@@ -292,6 +323,7 @@ class UpdateManager {
         lastUpdate: Date.now(),
         messageCount: newMessageIds.length
       };
+      logger.debug('Saving state hash', { guildId, raidType, stateKey, hash: newHash });
       await this.saveState();
 
       const duration = ((Date.now() - startTime) / 1000).toFixed(2);
@@ -344,11 +376,11 @@ class UpdateManager {
         
         const batchPromises = batch.map(async (config) => {
           try {
-            await Promise.all([
-              this.updateSchedule(config.guild_id, 'BA', config),
-              this.updateSchedule(config.guild_id, 'DRS', config),
-              this.updateSchedule(config.guild_id, 'FT', config)
-            ]);
+            await Promise.all(
+              ALL_RAID_TYPES.map(raidType => 
+                this.updateSchedule(config.guild_id, raidType, config)
+              )
+            );
             return { guild_id: config.guild_id, success: true };
           } catch (error) {
             logger.error('Error updating guild schedules', {
@@ -404,12 +436,12 @@ class UpdateManager {
         return { success: false, error: 'Server not configured' };
       }
 
-      for (const raidType of ['BA', 'DRS', 'FT']) {
+      for (const raidType of ALL_RAID_TYPES) {
         const stateKey = `${guildId}_${raidType}`;
         delete this.state[stateKey];
       }
 
-      for (const raidType of ['BA', 'DRS', 'FT']) {
+      for (const raidType of ALL_RAID_TYPES) {
         await this.updateSchedule(config.guild_id, raidType, config);
       }
 
@@ -442,7 +474,7 @@ class UpdateManager {
         return { success: false, error: 'Server not configured' };
       }
 
-      const channelKey = `schedule_channel_${raidType.toLowerCase()}`;
+      const channelKey = getScheduleChannelKey(raidType);
       const channelId = config[channelKey];
       
       if (!channelId) {
@@ -454,7 +486,7 @@ class UpdateManager {
         return { success: false, error: 'Channel not found' };
       }
 
-      const overviewMessageKey = `schedule_overview_${raidType.toLowerCase()}`;
+      const overviewMessageKey = getScheduleOverviewKey(raidType);
       const existingOverviewId = config[overviewMessageKey];
       
       if (existingOverviewId) {
@@ -469,7 +501,7 @@ class UpdateManager {
         }
       }
 
-      const messageKey = `schedule_message_${raidType.toLowerCase()}`;
+      const messageKey = getScheduleMessageKey(raidType);
       const existingMessageIds = config[messageKey] || [];
       
       for (const messageId of existingMessageIds) {

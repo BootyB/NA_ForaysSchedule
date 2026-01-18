@@ -2,6 +2,7 @@ const { ContainerBuilder, TextDisplayBuilder, ButtonBuilder, ButtonStyle, Action
 const logger = require('../../utils/logger');
 const encryptedDb = require('../../config/encryptedDatabase');
 const serviceLocator = require('../../services/serviceLocator');
+const { ALL_RAID_TYPES, getScheduleChannelKey, getScheduleOverviewKey, getScheduleMessageKey } = require('../../utils/raidTypes');
 
 /**
  * Show reset confirmation dialog
@@ -98,8 +99,8 @@ async function resetConfiguration(interaction) {
  * Delete all schedule messages for all raid types
  */
 async function deleteAllScheduleMessages(guild, config) {
-  for (const raidType of ['BA', 'DRS', 'FT']) {
-    const channelKey = `schedule_channel_${raidType.toLowerCase()}`;
+  for (const raidType of ALL_RAID_TYPES) {
+    const channelKey = getScheduleChannelKey(raidType);
     const channelId = config[channelKey];
     
     if (!channelId) continue;
@@ -108,14 +109,14 @@ async function deleteAllScheduleMessages(guild, config) {
       const channel = await guild.channels.fetch(channelId);
       
       // Delete overview message
-      const overviewKey = `schedule_overview_${raidType.toLowerCase()}`;
+      const overviewKey = getScheduleOverviewKey(raidType);
       const overviewId = config[overviewKey];
       if (overviewId) {
         await deleteMessage(channel, overviewId, 'overview', raidType, guild.id);
       }
       
       // Delete schedule messages
-      const messageKey = `schedule_message_${raidType.toLowerCase()}`;
+      const messageKey = getScheduleMessageKey(raidType);
       const messageIds = config[messageKey];
       if (messageIds) {
         const parsedIds = Array.isArray(messageIds) ? messageIds : JSON.parse(messageIds);

@@ -1,7 +1,8 @@
 const { DateTime } = require('luxon');
-const { SCHEDULE_DAYS_AHEAD, RUN_TYPE_PRIORITY } = require('../config/constants');
+const { SCHEDULE_DAYS_AHEAD } = require('../config/constants');
 const { isWhitelistedHost } = require('../config/hostServers');
 const logger = require('../utils/logger');
+const { isValidRaidType, getRunTypePriority } = require('../utils/raidTypes');
 
 class ScheduleManager {
   constructor(pool) {
@@ -10,7 +11,7 @@ class ScheduleManager {
 
   async fetchScheduleGroupedByServer(raidType, enabledHosts = [], daysAhead = SCHEDULE_DAYS_AHEAD) {
     try {
-      if (!['BA', 'FT', 'DRS'].includes(raidType)) {
+      if (!isValidRaidType(raidType)) {
         throw new Error(`Invalid raid type: ${raidType}`);
       }
 
@@ -136,7 +137,7 @@ class ScheduleManager {
   }
 
   sortRunTypes(groupedRuns, raidType) {
-    const priority = RUN_TYPE_PRIORITY[raidType] || [];
+    const priority = getRunTypePriority(raidType);
     const runTypes = Object.keys(groupedRuns);
     
     return runTypes.sort((a, b) => {

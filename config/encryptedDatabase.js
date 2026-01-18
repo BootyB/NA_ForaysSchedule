@@ -1,5 +1,13 @@
 const pool = require('./database');
 const { encrypt, decrypt, encryptJSON, decryptJSON, DEV_SERVER_ID } = require('../utils/encryption');
+const { 
+  ALL_RAID_TYPES, 
+  getScheduleChannelKey, 
+  getScheduleOverviewKey, 
+  getEnabledHostsKey, 
+  getScheduleMessageKey,
+  getScheduleColorKey 
+} = require('../utils/raidTypes');
 
 function encryptField(value, isDevServer) {
   if (!value) return null;
@@ -28,66 +36,69 @@ function decryptJSONField(value) {
 function encryptConfigFields(guildId, config) {
   const isDevServer = guildId === DEV_SERVER_ID;
   
-  return {
+  const result = {
     guild_id: guildId,
     guild_name: config.guild_name ? encryptField(config.guild_name, isDevServer) : null,
     setup_complete: config.setup_complete,
-    auto_update: config.auto_update,
-    
-    schedule_channel_ba: config.schedule_channel_ba ? encryptField(config.schedule_channel_ba, isDevServer) : null,
-    schedule_channel_ft: config.schedule_channel_ft ? encryptField(config.schedule_channel_ft, isDevServer) : null,
-    schedule_channel_drs: config.schedule_channel_drs ? encryptField(config.schedule_channel_drs, isDevServer) : null,
-    
-    schedule_overview_ba: config.schedule_overview_ba ? encryptField(config.schedule_overview_ba, isDevServer) : null,
-    schedule_overview_ft: config.schedule_overview_ft ? encryptField(config.schedule_overview_ft, isDevServer) : null,
-    schedule_overview_drs: config.schedule_overview_drs ? encryptField(config.schedule_overview_drs, isDevServer) : null,
-    
-    enabled_hosts_ba: config.enabled_hosts_ba ? encryptJSONField(config.enabled_hosts_ba, isDevServer) : null,
-    enabled_hosts_ft: config.enabled_hosts_ft ? encryptJSONField(config.enabled_hosts_ft, isDevServer) : null,
-    enabled_hosts_drs: config.enabled_hosts_drs ? encryptJSONField(config.enabled_hosts_drs, isDevServer) : null,
-    
-    schedule_message_ba: config.schedule_message_ba ? encryptJSONField(config.schedule_message_ba, isDevServer) : null,
-    schedule_message_ft: config.schedule_message_ft ? encryptJSONField(config.schedule_message_ft, isDevServer) : null,
-    schedule_message_drs: config.schedule_message_drs ? encryptJSONField(config.schedule_message_drs, isDevServer) : null,
-    
-    schedule_color_ba: config.schedule_color_ba,
-    schedule_color_ft: config.schedule_color_ft,
-    schedule_color_drs: config.schedule_color_drs
+    auto_update: config.auto_update
   };
+  
+  // Encrypt raid-type specific fields using loop instead of hardcoded fields
+  for (const raidType of ALL_RAID_TYPES) {
+    const channelKey = getScheduleChannelKey(raidType);
+    const overviewKey = getScheduleOverviewKey(raidType);
+    const hostsKey = getEnabledHostsKey(raidType);
+    const messageKey = getScheduleMessageKey(raidType);
+    const colorKey = getScheduleColorKey(raidType);
+    
+    // Regular encrypted fields
+    result[channelKey] = config[channelKey] ? encryptField(config[channelKey], isDevServer) : null;
+    result[overviewKey] = config[overviewKey] ? encryptField(config[overviewKey], isDevServer) : null;
+    
+    // JSON encrypted fields
+    result[hostsKey] = config[hostsKey] ? encryptJSONField(config[hostsKey], isDevServer) : null;
+    result[messageKey] = config[messageKey] ? encryptJSONField(config[messageKey], isDevServer) : null;
+    
+    // Non-encrypted color field
+    result[colorKey] = config[colorKey];
+  }
+  
+  return result;
 }
 
 function decryptConfigFields(encryptedConfig) {
   if (!encryptedConfig) return null;
   
-  return {
+  const result = {
     guild_id: encryptedConfig.guild_id,
     guild_name: encryptedConfig.guild_name ? decryptField(encryptedConfig.guild_name) : null,
     setup_complete: encryptedConfig.setup_complete,
     auto_update: encryptedConfig.auto_update,
-    
-    schedule_channel_ba: encryptedConfig.schedule_channel_ba ? decryptField(encryptedConfig.schedule_channel_ba) : null,
-    schedule_channel_ft: encryptedConfig.schedule_channel_ft ? decryptField(encryptedConfig.schedule_channel_ft) : null,
-    schedule_channel_drs: encryptedConfig.schedule_channel_drs ? decryptField(encryptedConfig.schedule_channel_drs) : null,
-    
-    schedule_overview_ba: encryptedConfig.schedule_overview_ba ? decryptField(encryptedConfig.schedule_overview_ba) : null,
-    schedule_overview_ft: encryptedConfig.schedule_overview_ft ? decryptField(encryptedConfig.schedule_overview_ft) : null,
-    schedule_overview_drs: encryptedConfig.schedule_overview_drs ? decryptField(encryptedConfig.schedule_overview_drs) : null,
-    
-    enabled_hosts_ba: encryptedConfig.enabled_hosts_ba ? (decryptJSONField(encryptedConfig.enabled_hosts_ba) || []) : null,
-    enabled_hosts_ft: encryptedConfig.enabled_hosts_ft ? (decryptJSONField(encryptedConfig.enabled_hosts_ft) || []) : null,
-    enabled_hosts_drs: encryptedConfig.enabled_hosts_drs ? (decryptJSONField(encryptedConfig.enabled_hosts_drs) || []) : null,
-    
-    schedule_message_ba: encryptedConfig.schedule_message_ba ? (decryptJSONField(encryptedConfig.schedule_message_ba) || []) : null,
-    schedule_message_ft: encryptedConfig.schedule_message_ft ? (decryptJSONField(encryptedConfig.schedule_message_ft) || []) : null,
-    schedule_message_drs: encryptedConfig.schedule_message_drs ? (decryptJSONField(encryptedConfig.schedule_message_drs) || []) : null,
-    
-    schedule_color_ba: encryptedConfig.schedule_color_ba,
-    schedule_color_ft: encryptedConfig.schedule_color_ft,
-    schedule_color_drs: encryptedConfig.schedule_color_drs,
-    
     created_at: encryptedConfig.created_at,
     updated_at: encryptedConfig.updated_at
   };
+  
+  // Decrypt raid-type specific fields using loop instead of hardcoded fields
+  for (const raidType of ALL_RAID_TYPES) {
+    const channelKey = getScheduleChannelKey(raidType);
+    const overviewKey = getScheduleOverviewKey(raidType);
+    const hostsKey = getEnabledHostsKey(raidType);
+    const messageKey = getScheduleMessageKey(raidType);
+    const colorKey = getScheduleColorKey(raidType);
+    
+    // Regular encrypted fields
+    result[channelKey] = encryptedConfig[channelKey] ? decryptField(encryptedConfig[channelKey]) : null;
+    result[overviewKey] = encryptedConfig[overviewKey] ? decryptField(encryptedConfig[overviewKey]) : null;
+    
+    // JSON encrypted fields (with fallback to empty array)
+    result[hostsKey] = encryptedConfig[hostsKey] ? (decryptJSONField(encryptedConfig[hostsKey]) || []) : null;
+    result[messageKey] = encryptedConfig[messageKey] ? (decryptJSONField(encryptedConfig[messageKey]) || []) : null;
+    
+    // Non-encrypted color field
+    result[colorKey] = encryptedConfig[colorKey];
+  }
+  
+  return result;
 }
 
 async function getServerConfig(guildId) {

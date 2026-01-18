@@ -2,6 +2,7 @@ const { ModalBuilder, TextInputBuilder, TextInputStyle, LabelBuilder } = require
 const logger = require('../../utils/logger');
 const encryptedDb = require('../../config/encryptedDatabase');
 const serviceLocator = require('../../services/serviceLocator');
+const { getColorFieldConfigs } = require('../../utils/raidTypes');
 
 /**
  * Show the color settings modal
@@ -179,11 +180,8 @@ function validateAndParseColors(colors, currentConfig) {
   const updateData = {};
   const changedRaidTypes = [];
 
-  const colorMap = [
-    { key: 'ba', configKey: 'schedule_color_ba', raidType: 'BA' },
-    { key: 'ft', configKey: 'schedule_color_ft', raidType: 'FT' },
-    { key: 'drs', configKey: 'schedule_color_drs', raidType: 'DRS' }
-  ];
+  // Use getColorFieldConfigs() from raidTypes instead of hardcoded array
+  const colorMap = getColorFieldConfigs();
 
   for (const { key, configKey, raidType } of colorMap) {
     const colorValue = colors[key];

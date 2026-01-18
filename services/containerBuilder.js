@@ -1,8 +1,15 @@
 const { ContainerBuilder, TextDisplayBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder, SeparatorBuilder, SeparatorSpacingSize, StringSelectMenuBuilder, SectionBuilder, ThumbnailBuilder } = require('discord.js');
-const { RAID_TYPES, MAX_COMPONENTS_PER_CONTAINER, RUN_TYPE_PRIORITY, BANNER_IMAGES, SPACER_IMAGE_URL } = require('../config/constants');
+const { MAX_COMPONENTS_PER_CONTAINER, SPACER_IMAGE_URL } = require('../config/constants');
 const { getServerIcon, getInviteLink, getChannelLink, getGuildStats } = require('../config/hostServers');
 const { hashCodeSchedules } = require('../utils/hashCode');
 const logger = require('../utils/logger');
+const { 
+  getRaidTypeName, 
+  getRaidTypeColor, 
+  getRaidTypeEmoji,
+  getRunTypePriority,
+  getBannerImage
+} = require('../utils/raidTypes');
 
 // Format emoji object to Discord string format
 function formatEmoji(emoji) {
@@ -13,6 +20,22 @@ function formatEmoji(emoji) {
   return '';
 }
 
+/**
+ * Set container accent color with proper handling for custom, default, and null values
+ * @param {ContainerBuilder} container - The container to set color on
+ * @param {number|null|undefined} customColor - Custom color value
+ * @param {number} defaultColor - Default color to use if customColor is undefined
+ */
+function setContainerColor(container, customColor, defaultColor) {
+  if (customColor === undefined) {
+    container.setAccentColor(defaultColor);
+  } else if (customColor === null) {
+    container.setAccentColor(null);
+  } else {
+    container.setAccentColor(customColor);
+  }
+}
+
 class ScheduleContainerBuilder {
   constructor(client = null) {
     this.componentCount = 0;
@@ -21,15 +44,9 @@ class ScheduleContainerBuilder {
 
   buildOverviewContainer(raidType, customColor = undefined) {
     const container = new ContainerBuilder();
-    const raidInfo = RAID_TYPES[raidType];
     
-    if (customColor === undefined) {
-      container.setAccentColor(raidInfo.color);
-    } else if (customColor === null) {
-      container.setAccentColor(null);
-    } else {
-      container.setAccentColor(customColor);
-    }
+    // Use helper function for consistent color handling
+    setContainerColor(container, customColor, getRaidTypeColor(raidType));
 
     const calendarLinks = {
       BA: {
@@ -60,31 +77,24 @@ class ScheduleContainerBuilder {
 
     const links = calendarLinks[raidType];
 
-    let headerContent = '';
+    // Add banner image if available for this raid type
+    const bannerImage = getBannerImage(raidType);
+    if (bannerImage) {
+      container.addMediaGalleryComponents(
+        new MediaGalleryBuilder().addItems(
+          new MediaGalleryItemBuilder().setURL(bannerImage)
+        )
+      );
+    }
     
-    if (raidType === 'BA') {
-      container.addMediaGalleryComponents(
-        new MediaGalleryBuilder().addItems(
-          new MediaGalleryItemBuilder().setURL(BANNER_IMAGES.BA)
-        )
-      );
-      headerContent = `### Multi-Server *Baldesion Arsenal* Schedule for North American and Materia Data Centers\n`;
-    } else if (raidType === 'DRS') {
-      container.addMediaGalleryComponents(
-        new MediaGalleryBuilder().addItems(
-          new MediaGalleryItemBuilder().setURL(BANNER_IMAGES.DRS)
-        )
-      );
-      headerContent = `### Multi-Server *Delubrum Reginae Savage* Schedule for North American and Materia Data Centers\n`;
-    } else if (raidType === 'FT') {
-      container.addMediaGalleryComponents(
-        new MediaGalleryBuilder().addItems(
-          new MediaGalleryItemBuilder().setURL(BANNER_IMAGES.FT)
-        )
-      );
-      headerContent = `### Multi-Server *Forked Tower* Schedule for North American and Materia Data Centers\n`;
+    // Build header content using raid type info
+    const raidName = getRaidTypeName(raidType);
+    let headerContent = '';
+    if (bannerImage) {
+      headerContent = `### Multi-Server *${raidName}* Schedule for North American and Materia Data Centers\n`;
     } else {
-      headerContent = `## ${formatEmoji(raidInfo.emoji)} ${raidInfo.name} Schedule\n### Multi-Server ${raidInfo.name} Schedule for North American and Materia Data Centers\n`;
+      const emoji = getRaidTypeEmoji(raidType);
+      headerContent = `## ${formatEmoji(emoji)} ${raidName} Schedule\n### Multi-Server ${raidName} Schedule for North American and Materia Data Centers\n`;
     }
     
     const calendarSection = 
@@ -144,7 +154,6 @@ class ScheduleContainerBuilder {
 
   async buildScheduleContainers(groupedRuns, raidType, customColor = undefined) {
     const containers = [];
-    const raidInfo = RAID_TYPES[raidType];
 
     if (!groupedRuns || Object.keys(groupedRuns).length === 0) {
       containers.push(this.buildEmptyContainer(raidType, customColor));
@@ -170,15 +179,9 @@ class ScheduleContainerBuilder {
 
   async buildServerContainer(serverName, runs, raidType, isFirst = false, customColor = undefined) {
     const container = new ContainerBuilder();
-    const raidInfo = RAID_TYPES[raidType];
     
-    if (customColor === undefined) {
-      container.setAccentColor(raidInfo.color);
-    } else if (customColor === null) {
-      container.setAccentColor(null);
-    } else {
-      container.setAccentColor(customColor);
-    }
+    // Use helper function for consistent color handling
+    setContainerColor(container, customColor, getRaidTypeColor(raidType));
 
     const serverIcon = getServerIcon(serverName);
     let headerContent = `## ${getChannelLink(serverName, raidType)}\n`;
@@ -225,7 +228,7 @@ class ScheduleContainerBuilder {
       runsByType[runType].push(run);
     }
 
-    const priorityOrder = RUN_TYPE_PRIORITY[raidType] || [];
+    const priorityOrder = getRunTypePriority(raidType);
     const sortedRunTypes = Object.keys(runsByType).sort((a, b) => {
       const indexA = priorityOrder.indexOf(a);
       const indexB = priorityOrder.indexOf(b);
@@ -299,18 +302,14 @@ class ScheduleContainerBuilder {
 
   buildEmptyContainer(raidType, customColor = undefined) {
     const container = new ContainerBuilder();
-    const raidInfo = RAID_TYPES[raidType];
     
-    if (customColor === undefined) {
-      container.setAccentColor(raidInfo.color);
-    } else if (customColor === null) {
-      container.setAccentColor(null);
-    } else {
-      container.setAccentColor(customColor);
-    }
+    // Use helper function for consistent color handling
+    setContainerColor(container, customColor, getRaidTypeColor(raidType));
     
+    const emoji = getRaidTypeEmoji(raidType);
+    const raidName = getRaidTypeName(raidType);
     const emptyText = 
-      `# ${formatEmoji(raidInfo.emoji)} ${raidInfo.name} Runs\n\n` +
+      `# ${formatEmoji(emoji)} ${raidName} Runs\n\n` +
       `No runs currently scheduled for the next 3 months.\n\n` +
       `*This schedule updates automatically every 60 seconds.*`;
     
