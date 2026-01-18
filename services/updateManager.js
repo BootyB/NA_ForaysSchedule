@@ -24,6 +24,28 @@ class UpdateManager {
     this.containerBuilder = new ScheduleContainerBuilder(client);
     this.stateManager = new EncryptedStateManager();
     this.state = {};
+    this.updateLocks = new Map(); // Prevent concurrent updates to same guild+raidType
+  }
+
+  /**
+   * Acquire a lock for a guild+raidType combination
+   * Returns true if lock acquired, false if already locked
+   */
+  acquireLock(guildId, raidType) {
+    const lockKey = `${guildId}_${raidType}`;
+    if (this.updateLocks.has(lockKey)) {
+      return false;
+    }
+    this.updateLocks.set(lockKey, Date.now());
+    return true;
+  }
+
+  /**
+   * Release a lock for a guild+raidType combination
+   */
+  releaseLock(guildId, raidType) {
+    const lockKey = `${guildId}_${raidType}`;
+    this.updateLocks.delete(lockKey);
   }
 
   async initialize() {
@@ -78,6 +100,13 @@ class UpdateManager {
 
   async updateSchedule(guildId, raidType, config) {
     const startTime = Date.now();
+    
+    // Acquire lock to prevent concurrent updates
+    if (!this.acquireLock(guildId, raidType)) {
+      logger.debug('Update already in progress, skipping', { guildId, raidType });
+      return;
+    }
+    
     try {
       logger.debug('Starting updateSchedule', { guildId, raidType });
       const stateKey = `${guildId}_${raidType}`;
@@ -366,6 +395,9 @@ class UpdateManager {
         guildId,
         raidType
       });
+    } finally {
+      // Always release the lock
+      this.releaseLock(guildId, raidType);
     }
   }
 
