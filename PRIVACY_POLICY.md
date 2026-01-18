@@ -16,7 +16,7 @@ We are committed to protecting your privacy and being transparent about our data
 
 When our hosted Service is added to a Discord server, we collect and store:
 
-- **Guild ID**: Unique identifier for your Discord server (encrypted)
+- **Guild ID**: Unique identifier for your Discord server
 - **Guild Name**: Name of your Discord server (encrypted)
 - **Configuration Settings**: Your server's configuration preferences, including:
   - Selected host servers to display
