@@ -1,6 +1,8 @@
+// SPDX-FileCopyrightText: 2024-2026 BootyB
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 const logger = require('./logger');
 const { RATE_LIMITER } = require('../config/constants');
-
 class RateLimiter {
   constructor() {
     // Track command usage per user

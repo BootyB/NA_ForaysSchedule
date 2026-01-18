@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2024-2026 BootyB
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 const { DateTime } = require('luxon');
 const { SCHEDULE_DAYS_AHEAD } = require('../config/constants');
 const { isWhitelistedHost } = require('../config/hostServers');

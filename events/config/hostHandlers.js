@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2024-2026 BootyB
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 const { ContainerBuilder, TextDisplayBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder } = require('discord.js');
 const logger = require('../../utils/logger');
 const { getAllHostServers, getServerEmoji } = require('../../config/hostServers');

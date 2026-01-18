@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2024-2026 BootyB
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 const ScheduleManager = require('./scheduleManager');
 const ScheduleContainerBuilder = require('./containerBuilder');
 const { AttachmentBuilder } = require('discord.js');

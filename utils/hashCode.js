@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: 2024-2026 BootyB
+// SPDX-License-Identifier: GPL-3.0-or-later
 
 function hashCodeSchedules(str) {
   let hash = 0;

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2024-2026 BootyB
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 require('dotenv').config();
 const pool = require('../../config/database');
 const { decrypt } = require('../../utils/encryption');

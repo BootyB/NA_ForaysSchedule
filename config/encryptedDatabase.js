@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2024-2026 BootyB
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 const pool = require('./database');
 const { encrypt, decrypt, encryptJSON, decryptJSON, DEV_SERVER_ID } = require('../utils/encryption');
 const { 

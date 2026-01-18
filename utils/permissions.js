@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2024-2026 BootyB
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 const { PermissionFlagsBits } = require('discord.js');
 
 function canConfigureBot(member) {

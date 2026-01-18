@@ -1,6 +1,10 @@
+// SPDX-FileCopyrightText: 2024-2026 BootyB
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 const logger = require('../utils/logger');
 const { getAllHostServers } = require('../config/hostServers');
 const encryptedDb = require('../config/encryptedDatabase');
+const { WHITELIST_ENABLED } = require('../config/constants');
 
 class WhitelistManager {
   constructor(pool) {
@@ -9,6 +13,12 @@ class WhitelistManager {
 
   async isGuildWhitelisted(guildId) {
     try {
+      // If whitelist is disabled, allow all guilds
+      if (!WHITELIST_ENABLED) {
+        logger.debug('Whitelist disabled, allowing guild', { guildId });
+        return true;
+      }
+
       logger.info('Checking guild whitelist', { guildId });
       
       const guild = await encryptedDb.getWhitelistedGuild(guildId);

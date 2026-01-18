@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: 2024-2026 BootyB
+// SPDX-License-Identifier: GPL-3.0-or-later
 
 const RAID_TYPES = {
   BA: {
@@ -92,6 +94,9 @@ const DEFAULT_HEALTH_PORT = 3000;
 const DEV_SERVER_GUILD_ID = process.env.DEV_SERVER_ID || null;
 const IS_DEV_BOT = process.env.IS_DEV_BOT === 'true';
 
+// Whitelist toggle - set WHITELIST_ENABLED=false to allow all servers
+const WHITELIST_ENABLED = process.env.WHITELIST_ENABLED !== 'false';
+
 module.exports = {
   RAID_TYPES,
   RUN_TYPE_PRIORITY,
@@ -106,5 +111,6 @@ module.exports = {
   RATE_LIMITER,
   DEFAULT_HEALTH_PORT,
   DEV_SERVER_GUILD_ID,
-  IS_DEV_BOT
+  IS_DEV_BOT,
+  WHITELIST_ENABLED
 };

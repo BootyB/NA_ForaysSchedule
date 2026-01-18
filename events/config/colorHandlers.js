@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2024-2026 BootyB
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 const { ModalBuilder, TextInputBuilder, TextInputStyle, LabelBuilder } = require('discord.js');
 const logger = require('../../utils/logger');
 const encryptedDb = require('../../config/encryptedDatabase');

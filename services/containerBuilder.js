@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2024-2026 BootyB
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 const { ContainerBuilder, TextDisplayBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder, SeparatorBuilder, SeparatorSpacingSize, StringSelectMenuBuilder, SectionBuilder, ThumbnailBuilder } = require('discord.js');
 const { MAX_COMPONENTS_PER_CONTAINER, SPACER_IMAGE_URL } = require('../config/constants');
 const { getServerIcon, getInviteLink, getChannelLink, getGuildStats } = require('../config/hostServers');

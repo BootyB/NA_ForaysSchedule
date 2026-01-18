@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2024-2026 BootyB
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 const fs = require('fs').promises;
 const path = require('path');
 const { encryptJSON, decryptJSON } = require('../utils/encryption');
